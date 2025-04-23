@@ -46,6 +46,7 @@ static ssize_t set_wdt_max_pwm(struct device *dev, struct device_attribute *da,
 /* fan related data, the index should match sysfs_fan_attributes
  */
 static const u8 fan_reg[] = {
+    0x01,       /* fan cpld version */
     0x0F,       /* fan 1-6 present status */
     0x10,	    /* fan 1-6 direction(0:F2B 1:B2F) */
     0x11,       /* fan PWM(for all fan) */
@@ -85,6 +86,7 @@ enum fan_id {
 };
 
 enum sysfs_fan_attributes {
+    FAN_VERSION,
     FAN_PRESENT_REG,
     FAN_DIRECTION_REG,
     FAN_DUTY_CYCLE_PERCENTAGE, /* Only one CPLD register to control duty cycle for all fans */
@@ -125,6 +127,10 @@ enum sysfs_fan_attributes {
 
 /* Define attributes
  */
+#define DECLARE_FAN_VERSION_SENSOR_DEV_ATTR() \
+    static SENSOR_DEVICE_ATTR(version, S_IRUGO, fan_show_value, NULL, FAN_VERSION)
+#define DECLARE_FAN_VERSION_ATTR()      &sensor_dev_attr_version.dev_attr.attr
+
 #define DECLARE_FAN_FAULT_SENSOR_DEV_ATTR(index) \
     static SENSOR_DEVICE_ATTR(fan##index##_fault, S_IRUGO, fan_show_value, NULL, FAN##index##_FAULT)
 #define DECLARE_FAN_FAULT_ATTR(index)      &sensor_dev_attr_fan##index##_fault.dev_attr.attr
@@ -187,6 +193,7 @@ DECLARE_FAN_DIRECTION_SENSOR_DEV_ATTR(6);
 DECLARE_FAN_DUTY_CYCLE_SENSOR_DEV_ATTR();
 /* 3 fan wdt attribute in this platform  */
 DECLARE_FAN_WDT_SENSOR_DEV_ATTR();
+DECLARE_FAN_VERSION_SENSOR_DEV_ATTR();
 
 static struct attribute *as7726_32x_fan_attributes[] = {
     /* fan related attributes */
@@ -218,6 +225,7 @@ static struct attribute *as7726_32x_fan_attributes[] = {
     DECLARE_FAN_WDT_TIMER_ATTR(),
     DECLARE_FAN_WDT_MAX_PWM_ATTR(),
     DECLARE_FAN_WDT_STATUS_ATTR(),
+    DECLARE_FAN_VERSION_ATTR(),
     NULL
 };
 
@@ -490,6 +498,9 @@ static ssize_t fan_show_value(struct device *dev, struct device_attribute *da,
         case FAN_WDT_TIMER:
         case FAN_WDT_MAX_PWM:
         case FAN_WDT_STATUS:
+            ret = sprintf(buf, "%u\n", data->reg_val[attr->index]);
+            break;
+        case FAN_VERSION:
             ret = sprintf(buf, "%u\n", data->reg_val[attr->index]);
             break;
         default:

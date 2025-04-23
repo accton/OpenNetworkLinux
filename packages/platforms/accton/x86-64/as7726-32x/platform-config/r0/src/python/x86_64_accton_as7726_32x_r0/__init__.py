@@ -82,6 +82,7 @@ class OnlPlatform_x86_64_accton_as7726_32x_r0(OnlPlatformAccton,
             ('as7726_32x_cpld1', 0x60, 11),
             ('as7726_32x_cpld2', 0x62, 12),
             ('as7726_32x_cpld3', 0x64, 13),
+            ('as7726_32x_cpld3', 0x65, 0),
             ])
         self.new_i2c_devices([
             # initiate fan

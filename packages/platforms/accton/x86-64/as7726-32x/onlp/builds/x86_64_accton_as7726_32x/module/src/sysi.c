@@ -37,18 +37,21 @@
 #include "x86_64_accton_as7726_32x_log.h"
 #include <onlplib/i2c.h>
 
+#define BIOS_VER_PATH "/sys/devices/virtual/dmi/id/bios_version"
 #define NUM_OF_FAN_ON_MAIN_BROAD      6
 #define PREFIX_PATH_ON_CPLD_DEV          "/sys/bus/i2c/devices/"
-#define NUM_OF_CPLD                      3
+#define NUM_OF_CPLD                   5
 #define FAN_DUTY_CYCLE_MAX         (100)
 #define FAN_DUTY_CYCLE_DEFAULT     (38)
 
 
 static char arr_cplddev_name[NUM_OF_CPLD][10] =
 {
+ "0-0065",
  "11-0060",
  "12-0062",
- "13-0064"
+ "13-0064",
+ "54-0066"
 };
 
 const char*
@@ -108,15 +111,31 @@ int
 onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int   i, v[NUM_OF_CPLD]={0};
+    onlp_onie_info_t onie;
+    char *bios_ver = NULL;
+
+    onlp_file_read_str(&bios_ver, BIOS_VER_PATH);
+    onlp_onie_decode_file(&onie, IDPROM_PATH);
 
     for (i = 0; i < NUM_OF_CPLD; i++) {
         v[i] = 0;
 
-        if(onlp_file_read_int(v+i, "%s%s/version", PREFIX_PATH_ON_CPLD_DEV, arr_cplddev_name[i]) < 0) {
-            return ONLP_STATUS_E_INTERNAL;
-        }
+        onlp_file_read_int(v+i, "%s%s/version", PREFIX_PATH_ON_CPLD_DEV, arr_cplddev_name[i]);
+
     }
-    pi->cpld_versions = aim_fstrdup("%d.%d.%d", v[0], v[1], v[2]);
+
+    pi->cpld_versions = aim_fstrdup("\r\n\t   CPU CPLD(0x65): %02X"
+                                    "\r\n\t   Main CPLD(0x60): %02X"
+                                    "\r\n\t   Main CPLD(0x62): %02X"
+                                    "\r\n\t   Main CPLD(0x64): %02X"
+                                    "\r\n\t   Fan CPLD(0x66): %02X\r\n",
+                                    v[0], v[1], v[2], v[3], v[4]);
+
+    pi->other_versions = aim_fstrdup("\r\n\t   BIOS: %s\r\n\t   ONIE: %s",
+                                    bios_ver, onie.onie_version);
+
+    onlp_onie_info_free(&onie);
+    AIM_FREE_IF_PTR(bios_ver);
 
     return 0;
 }
@@ -125,6 +144,7 @@ void
 onlp_sysi_platform_info_free(onlp_platform_info_t* pi)
 {
     aim_free(pi->cpld_versions);
+    aim_free(pi->other_versions);
 }
 
 /*

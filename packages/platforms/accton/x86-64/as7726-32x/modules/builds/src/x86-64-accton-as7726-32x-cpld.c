@@ -48,7 +48,8 @@ struct cpld_client_node {
 enum cpld_type {
     as7726_32x_cpld1,
     as7726_32x_cpld2,
-    as7726_32x_cpld3
+    as7726_32x_cpld3,
+    as7726_32x_cpu_cpld
 };
 
 struct as7726_32x_cpld_data {
@@ -61,6 +62,7 @@ static const struct i2c_device_id as7726_32x_cpld_id[] = {
     { "as7726_32x_cpld1", as7726_32x_cpld1 },
     { "as7726_32x_cpld2", as7726_32x_cpld2 },
     { "as7726_32x_cpld3", as7726_32x_cpld3 },
+    { "as7726_32x_cpu_cpld", as7726_32x_cpu_cpld },
     { }
 };
 MODULE_DEVICE_TABLE(i2c, as7726_32x_cpld_id);
@@ -258,6 +260,16 @@ static const struct attribute_group as7726_32x_cpld3_group = {
 	.attrs = as7726_32x_cpld3_attributes,
 };
 
+static struct attribute *as7726_32x_cpu_cpld_attributes[] = {
+    &sensor_dev_attr_version.dev_attr.attr,
+    &sensor_dev_attr_access.dev_attr.attr,
+	NULL
+};
+
+static const struct attribute_group as7726_32x_cpu_cpld_group = {
+	.attrs = as7726_32x_cpu_cpld_attributes,
+};
+
 static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
              char *buf)
 {
@@ -300,7 +312,7 @@ exit:
 static ssize_t show_rxlos_all(struct device *dev, struct device_attribute *da,
              char *buf)
 {
-	int i, status;
+	int status;
 	u8 value=0;
 	u8 reg = 0x50;
 	struct i2c_client *client = to_i2c_client(dev);
@@ -575,6 +587,9 @@ static int as7726_32x_cpld_probe(struct i2c_client *client,
 	case as7726_32x_cpld3:
          group = &as7726_32x_cpld3_group;
         break;
+    case as7726_32x_cpu_cpld:
+         group = &as7726_32x_cpu_cpld_group;
+        break;
     default:
         break;
     }
@@ -612,6 +627,9 @@ static int as7726_32x_cpld_remove(struct i2c_client *client)
         break;
 	case as7726_32x_cpld3:
         group = &as7726_32x_cpld3_group;
+        break;
+    case as7726_32x_cpu_cpld:
+         group = &as7726_32x_cpu_cpld_group;
         break;
     default:
         break;
