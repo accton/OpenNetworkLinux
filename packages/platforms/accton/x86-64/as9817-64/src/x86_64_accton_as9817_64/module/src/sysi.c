@@ -663,9 +663,6 @@ int send_thermal_data_to_bmc(int mac_temp, int xcvr_temp, int xcvr_num)
     char data[32];
     int ret = ONLP_STATUS_E_INTERNAL;
 
-    if (mac_temp == tp_mgr.temp_hdlr.thresholds[TEMP_SENSOR_MAC].up_adjust) {
-        mac_temp = 80000;
-    }
     if (xcvr_temp == 0) {
         xcvr_num = 0;
     }
