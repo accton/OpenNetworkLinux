@@ -69,6 +69,7 @@ MODULE_DEVICE_TABLE(i2c, as9736_64d_cpld_id);
 
 enum as9736_64d_cpld_sysfs_attributes {
 	CPLD_VERSION,
+	BIOS_FLASH_ID,
 	ACCESS,
 };
 
@@ -78,11 +79,14 @@ static ssize_t access(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
 static ssize_t show_version(struct device *dev, struct device_attribute *da,
 			char *buf);
+static ssize_t show_bios_flash_id(struct device *dev, struct device_attribute *da,
+            char *buf);
 static int as9736_64d_cpld_read_internal(struct i2c_client *client, u8 reg);
 static int as9736_64d_cpld_write_internal(struct i2c_client *client, u8 reg,
 					u8 value);
 
 static SENSOR_DEVICE_ATTR(version, S_IRUGO, show_version, NULL, CPLD_VERSION);
+static SENSOR_DEVICE_ATTR(bios_flash_id, S_IRUGO, show_bios_flash_id, NULL, BIOS_FLASH_ID);
 static SENSOR_DEVICE_ATTR(access, S_IWUSR, NULL, access, ACCESS);
 
 static struct attribute *as9736_64d_fpga_attributes[] = {
@@ -97,6 +101,7 @@ static const struct attribute_group as9736_64d_fpga_group = {
 
 static struct attribute *as9736_64d_sys_cpld_attributes[] = {
     &sensor_dev_attr_version.dev_attr.attr,
+	&sensor_dev_attr_bios_flash_id.dev_attr.attr,
     NULL
 };
 
@@ -211,6 +216,16 @@ static ssize_t show_version(struct device *dev, struct device_attribute *attr,
     }
 
     return sprintf(buf, "%x.%x\n", val_major, val_minor);
+}
+
+static ssize_t show_bios_flash_id(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int val = 0;
+    struct i2c_client *client = to_i2c_client(dev);
+
+    val = i2c_smbus_read_byte_data(client, 0x6);
+
+    return sprintf(buf, "%d\n", ( (val & 0x1) == 0 ) ? 1 : 2); /*1: master, 2: slave*/
 }
 
 /*
