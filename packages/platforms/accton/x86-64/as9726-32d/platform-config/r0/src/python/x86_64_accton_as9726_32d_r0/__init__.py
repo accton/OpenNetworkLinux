@@ -37,6 +37,7 @@ class OnlPlatform_x86_64_accton_as9726_32d_r0(OnlPlatformAccton,
         self.new_i2c_devices([
             # initialize CPLD
              #initiate CPLD
+            ('as9726_32d_cpu_cpld', 0x65, 1),
             ('as9726_32d_fpga', 0x60, 1),            
             ('as9726_32d_cpld1', 0x61, 10),
             ('as9726_32d_cpld2', 0x62, 10),
