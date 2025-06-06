@@ -156,18 +156,30 @@ function _check_i2c_device {
     fi
 }
 
+function _check_bmc_device {
+    if [[ -e "/dev/ipmi0" ]] || [[ -e "/dev/ipmidev/0" ]];then
+        return ${TRUE}
+    else
+        return ${FALSE}
+    fi
+
+}
+
 function _show_system_info {
     _banner "Show System Info"
 
     x86_date=`date`
     x86_uptime=`uptime`
-    if [[ -f "/dev/ipmi0" ]] || [[ -f "/dev/ipmidev/0" ]];then 
+
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${TRUE} ]]; then
         bmc_date=$(eval "ipmitool sel time get ${LOG_REDIRECT}")
     fi
     last_login=`last`
 
     _echo "[X86 Date Time ]: ${x86_date}"
-    if [[ -f "/dev/ipmi0" ]] || [[ -f "/dev/ipmidev/0" ]];then 
+    if [[ find_bmc_dev -eq ${TRUE} ]]; then
         _echo "[BMC Date Time ]: ${bmc_date}"
     fi
     _echo "[X86 Up Time   ]: ${x86_uptime}"
@@ -311,7 +323,9 @@ function _get_netif_name {
 function _show_bmc_info {
     _banner "Show BMC Info"
 
-    if [[ ! -f "/dev/ipmi0" ]] && [[ ! -f "/dev/ipmidev/0" ]];then 
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${FALSE} ]]; then
         _echo "Not support!"
         return
     fi
@@ -334,7 +348,9 @@ function _show_bmc_info {
 function _show_bmc_sensors {
     _banner "Show BMC Sensors"
 
-    if [[ ! -f "/dev/ipmi0" ]] && [[ ! -f "/dev/ipmidev/0" ]];then 
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${FALSE} ]]; then
         _echo "Not support!"
         return
     fi
@@ -347,7 +363,9 @@ function _show_bmc_sensors {
 function _show_bmc_sel_raw_data {
     _banner "Show BMC SEL Raw Data"
 
-    if [[ ! -f "/dev/ipmi0" ]] && [[ ! -f "/dev/ipmidev/0" ]];then 
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${FALSE} ]]; then
         _echo "Not support!"
         return
     fi
@@ -369,7 +387,9 @@ function _show_bmc_sel_raw_data {
 function _show_bmc_sel_elist {
     _banner "Show BMC SEL"
 
-    if [[ ! -f "/dev/ipmi0" ]] && [[ ! -f "/dev/ipmidev/0" ]];then 
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${FALSE} ]]; then
         _echo "Not support!"
         return
     fi
@@ -382,7 +402,9 @@ function _show_bmc_sel_elist {
 function _show_bmc_sel_elist_detail {
     _banner "Show BMC SEL Detail -- Abnormal Event"
 
-    if [[ ! -f "/dev/ipmi0" ]] && [[ ! -f "/dev/ipmidev/0" ]];then 
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${FALSE} ]]; then
         _echo "Not support!"
         return
     fi
@@ -440,10 +462,35 @@ function _show_cpu_eeprom_sysfs {
 function _show_bmc_device_status {    
     _banner "Show BMC Device Status"
 
-    if [[ ! -f "/dev/ipmi0" ]] && [[ ! -f "/dev/ipmidev/0" ]];then 
+    _check_bmc_device
+    find_bmc_dev=$?
+    if [[ find_bmc_dev -eq ${FALSE} ]]; then
         _echo "Not support!"
         return
     fi
+    # Get PSU 1
+    psu1_hw_revision=$(eval     "ipmitool raw 0x34 0x16 1 0x14 ${LOG_REDIRECT}")
+    psu1_mfr_id=$(eval           "ipmitool raw 0x34 0x16 1 0x12 ${LOG_REDIRECT}")
+    psu1_data=$(eval            " ipmitool raw 0x34 0x16 1 ${LOG_REDIRECT}")
+
+    _echo "[PSU 1 HW revision ]:"
+    _echo " ${psu1_hw_revision}"
+    _echo "[PSU 1 MFR ID ]:"
+    _echo " ${psu1_mfr_id}"
+    _echo "[PSU 1 data ]:"
+    _echo " ${psu1_data}"
+
+    # Get PSU 2
+    psu2_hw_revision=$(eval     "ipmitool raw 0x34 0x16 2 0x14 ${LOG_REDIRECT}")
+    psu2_mfr_id=$(eval           "ipmitool raw 0x34 0x16 2 0x12 ${LOG_REDIRECT}")
+    psu2_data=$(eval            " ipmitool raw 0x34 0x16 2 ${LOG_REDIRECT}")
+
+    _echo "[PSU 2 HW revision ]:"
+    _echo " ${psu2_hw_revision}"
+    _echo "[PSU 2 MFR ID ]:"
+    _echo " ${psu2_mfr_id}"
+    _echo "[PSU 2 data ]:"
+    _echo " ${psu2_data}"
 }
 
 function _show_cpu_eeprom {
