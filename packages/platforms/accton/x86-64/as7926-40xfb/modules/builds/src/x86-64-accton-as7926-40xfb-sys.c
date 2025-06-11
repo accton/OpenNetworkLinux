@@ -44,6 +44,7 @@
 #define IPMI_READ_MAX_LEN       128
 #define IPMI_RESET_CMD			0x65
 #define IPMI_RESET_CMD_LENGTH	6
+#define IPMI_CPLD_READ_REG_CMD 0x22
 
 #define EEPROM_NAME				"eeprom"
 #define EEPROM_SIZE				256	/*      256 byte eeprom */
@@ -55,6 +56,10 @@ static ssize_t get_reset(struct device *dev, struct device_attribute *da,
 			char *buf);
 static ssize_t set_reset(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
+static ssize_t show_bios_flash_id(struct device *dev, struct device_attribute *da,
+			char *buf);
+static ssize_t show_version(struct device *dev, struct device_attribute *da,
+			char *buf);
 
 struct ipmi_data {
 	struct completion read_complete;
@@ -80,6 +85,7 @@ struct as7926_40xfb_sys_data {
 	unsigned long last_updated;	/* In jiffies */
 	struct ipmi_data ipmi;
 	unsigned char ipmi_resp_eeprom[EEPROM_SIZE];
+	unsigned char ipmi_resp_cpld[2];
 	unsigned char ipmi_tx_data[2];
 	unsigned char ipmi_resp_rst[2];
 	unsigned char ipmi_tx_data_rst[IPMI_RESET_CMD_LENGTH];
@@ -103,20 +109,23 @@ enum as7926_40xfb_sysfs_attrs {
 	RESET_MAC,
 	RESET_JR2,
 	RESET_OP2,
-	RESET_GEARBOX
+	RESET_GEARBOX,
+	CPU_CPLD_VER,
+	CPLD1_VER,
+	BIOS_FLASH_ID
 };
 
 #define DECLARE_RESET_SENSOR_DEVICE_ATTR() \
 	static SENSOR_DEVICE_ATTR(reset_mac, S_IWUSR | S_IRUGO, \
-							get_reset, set_reset, RESET_MAC); \
+				get_reset, set_reset, RESET_MAC); \
 	static SENSOR_DEVICE_ATTR(reset_jr2, S_IWUSR | S_IRUGO, \
-							get_reset, set_reset, RESET_JR2); \
+				get_reset, set_reset, RESET_JR2); \
 	static SENSOR_DEVICE_ATTR(reset_op2, S_IWUSR | S_IRUGO, \
-							get_reset, set_reset, RESET_OP2); \
+				get_reset, set_reset, RESET_OP2); \
 	static SENSOR_DEVICE_ATTR(reset_gb, S_IWUSR | S_IRUGO, \
-							get_reset, set_reset, RESET_GEARBOX); \
+				get_reset, set_reset, RESET_GEARBOX); \
 	static SENSOR_DEVICE_ATTR(reset_mux, S_IWUSR | S_IRUGO, \
-							get_reset, set_reset, RESET_MUX)
+				get_reset, set_reset, RESET_MUX)
 #define DECLARE_RESET_ATTR() \
 	&sensor_dev_attr_reset_mac.dev_attr.attr, \
 	&sensor_dev_attr_reset_jr2.dev_attr.attr, \
@@ -126,9 +135,19 @@ enum as7926_40xfb_sysfs_attrs {
 
 DECLARE_RESET_SENSOR_DEVICE_ATTR();
 
+static SENSOR_DEVICE_ATTR(cpu_cpld_version, S_IRUGO, \
+			show_version, NULL, CPU_CPLD_VER);
+static SENSOR_DEVICE_ATTR(cpld1_version, S_IRUGO, \
+			show_version, NULL, CPLD1_VER);
+static SENSOR_DEVICE_ATTR(bios_flash_id, S_IRUGO, \
+			show_bios_flash_id, NULL, BIOS_FLASH_ID);
+
 static struct attribute *as7926_40xfb_sys_attributes[] = {
 	/* sysfs attributes */
 	DECLARE_RESET_ATTR(),
+	&sensor_dev_attr_cpu_cpld_version.dev_attr.attr,
+	&sensor_dev_attr_cpld1_version.dev_attr.attr,
+	&sensor_dev_attr_bios_flash_id.dev_attr.attr,
 	NULL
 };
 
@@ -218,7 +237,7 @@ static int ipmi_send_message(struct ipmi_data *ipmi, unsigned char cmd,
 	int status = 0, retry = 0;
 
 	for (retry = 0; retry <= IPMI_ERR_RETRY_TIMES; retry++) {
-        status = _ipmi_send_message(ipmi, cmd, tx_data, tx_len,rx_data, rx_len);
+	status = _ipmi_send_message(ipmi, cmd, tx_data, tx_len,rx_data, rx_len);
 		if (unlikely(status != 0)) {
 			dev_err(&data->pdev->dev,
 				"ipmi_send_message_%d err status(%d)\r\n",
@@ -335,6 +354,95 @@ static ssize_t set_reset(struct device *dev, struct device_attribute *da,
  exit:
 	mutex_unlock(&data->update_lock);
 	return status;
+}
+
+static struct as7926_40xfb_sys_data *as7926_40xfb_sys_update_reg(
+			unsigned char addr, unsigned char reg)
+{
+	int status = 0;
+
+	data->valid = 0;
+
+	data->ipmi_tx_data[0] = addr;
+	data->ipmi_tx_data[1] = reg;
+	status = ipmi_send_message(&data->ipmi, IPMI_CPLD_READ_REG_CMD,
+					data->ipmi_tx_data, 2,
+					data->ipmi_resp_cpld,
+					sizeof(data->ipmi_resp_cpld));
+	if (unlikely(status != 0))
+		goto exit;
+
+	if (unlikely(data->ipmi.rx_result != 0)) {
+		status = -EIO;
+		goto exit;
+	}
+
+	data->last_updated = jiffies;
+	data->valid = 1;
+
+exit:
+	return data;
+}
+
+static ssize_t show_version(struct device *dev,
+				struct device_attribute *da, char *buf)
+{
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	unsigned char addr;
+	unsigned char reg = 0x1;
+	unsigned char value = 0;
+	int error = 0;
+
+	mutex_lock(&data->update_lock);
+
+	if ((attr->index == CPU_CPLD_VER))
+		addr = 0x65;
+	else if ((attr->index == CPLD1_VER))
+		addr = 0x60;
+
+	data = as7926_40xfb_sys_update_reg(addr, reg);
+
+	if (!data->valid) {
+		error = -EIO;
+		goto exit;
+	}
+
+	value = data->ipmi_resp_cpld[0];
+
+	mutex_unlock(&data->update_lock);
+	return sprintf(buf, "%d\n", value);
+
+exit:
+	mutex_unlock(&data->update_lock);
+	return error;
+}
+
+static ssize_t show_bios_flash_id(struct device *dev, struct device_attribute *da,
+					char *buf)
+{
+	unsigned char addr = 0x65;
+	unsigned char reg = 0x3;
+	unsigned char bit_offset = 0x2;
+	unsigned char value = 0;
+	int error = 0;
+
+	mutex_lock(&data->update_lock);
+
+	data = as7926_40xfb_sys_update_reg(addr, reg);
+
+	if (!data->valid) {
+		error = -EIO;
+		goto exit;
+	}
+
+	value = ((data->ipmi_resp_cpld[0] >> bit_offset) == 1) ? 1 : 2; /*1: master, 2: slave*/
+
+	mutex_unlock(&data->update_lock);
+	return sprintf(buf, "%d\n", value);
+
+exit:
+	mutex_unlock(&data->update_lock);
+	return error;
 }
 
 static ssize_t sys_eeprom_read(loff_t off, char *buf, size_t count)
