@@ -673,10 +673,10 @@ int onlp_sysi_platform_manage_fans(void)
                 max_port_temp = port_temp;
             }
         }
-        sensor_info[MONITOR_PORT_NUM + i].temp = port_temp;
-        sensor_info[MONITOR_PORT_NUM + i].type = TYPE_TRANSCEIVER;
-        sensor_info[MONITOR_PORT_NUM + i].xcvr.port_num = monitor_port[i];
-        sprintf(sensor_info[MONITOR_PORT_NUM + i].xcvr.port_name, "port %d", monitor_port[i]);
+        sensor_info[CHASSIS_THERMAL_COUNT + i].temp = port_temp;
+        sensor_info[CHASSIS_THERMAL_COUNT + i].type = TYPE_TRANSCEIVER;
+        sensor_info[CHASSIS_THERMAL_COUNT + i].xcvr.port_num = monitor_port[i];
+        sprintf(sensor_info[CHASSIS_THERMAL_COUNT + i].xcvr.port_name, "port %d", monitor_port[i]);
     }
 
     /* Get current fan pwm percent
