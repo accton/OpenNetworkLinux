@@ -487,6 +487,7 @@ static int fan_fail = 0;
 
 static int fan_alarm_state=LEVEL_FAN_INIT;
 static int send_red_alarm=0;
+static int xcvr_shutdown_flag = 0;
 static int count_check=0;
 
 int current_duty_cycle, new_duty_cycle;
@@ -595,7 +596,6 @@ int onlp_sysi_platform_manage_fans(void)
     int psu_full_load=0;
     int port = 0;
     int port_temp = ONLP_STATUS_E_MISSING, max_port_temp = ONLP_STATUS_E_MISSING;
-    int xcvr_shutdown_flag = 0;
     onlp_sensor_info_t sensor_info[CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM];
     char  buf[10] = {0};
 
@@ -753,31 +753,29 @@ int onlp_sysi_platform_manage_fans(void)
                         fan_alarm_state = LEVEL_FAN_SHUTDOWN;
                         if(i < CHASSIS_THERMAL_COUNT)
                         {
+                            sleep(1);
                             AIM_SYSLOG_CRIT("Temperature is over the shutdown threshold",
                                             "Temperature is over the shutdown threshold",
                                             "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
                                              sensor_info[i].thermal.hdr.description,
                                              (double)sensor_info[i].temp/1000,
                                              (double)afi_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
+                            onlp_sysi_shutdown();
                         }
                         else /*ZR xcvr do HW protect*/
                         {
-                            sleep(1);
                             if(!xcvr_shutdown_flag) {
+                                xcvr_shutdown_flag = 1;
                                 AIM_SYSLOG_CRIT("XCVR temperature is over the shutdown threshold",
                                                 "XCVR temperature is over the shutdown threshold",
                                                 "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
                                                 sensor_info[i].xcvr.port_name,
                                                 (double)sensor_info[i].temp/1000,
                                                 (double)afi_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
-                            onlp_sysi_shutdown();
                             }
                         }
                     }
                 }
-            }
-            if(fan_alarm_state == LEVEL_FAN_SHUTDOWN) {
-                xcvr_shutdown_flag = 1;
             }
         }
 
@@ -893,6 +891,7 @@ int onlp_sysi_platform_manage_fans(void)
                         else /*ZR xcvr do HW protect*/
                         {
                             if(!xcvr_shutdown_flag) {
+                                xcvr_shutdown_flag = 1;
                                 AIM_SYSLOG_CRIT("XCVR temperature is over the shutdown threshold",
                                                 "XCVR temperature is over the shutdown threshold",
                                                 "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
@@ -904,10 +903,6 @@ int onlp_sysi_platform_manage_fans(void)
                     }
                 }
             }
-            if(fan_alarm_state == LEVEL_FAN_SHUTDOWN) {
-                xcvr_shutdown_flag = 1;
-            }
-
         }
 
         if(max_to_mid==(CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM) && ori_state==LEVEL_FAN_MAX)
