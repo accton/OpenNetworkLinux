@@ -494,9 +494,11 @@ int onlp_sysi_get_monitor_xcvr_presence(void)
     onlp_sfp_bitmap_t_init(&bitmap);
     onlp_sfp_presence_bitmap_get(&bitmap);
 
-    /* Only check monitor port*/
     int i = 0, port = 0, ret = 0;
-
+    /*
+     * return 0: No monitor ports are present
+     *        1: At least one monitor port is present
+     */
     for (i = 0; i < MONITOR_PORT_NUM; i++) {
         port = monitor_port[i] - 1;
         ret = ret | AIM_BITMAP_GET(&bitmap, port);
@@ -682,11 +684,13 @@ int onlp_sysi_platform_manage_fans(void)
         }
 
         if( max_port_temp == ONLP_STATUS_E_INTERNAL ) {
-            check_xcvr_temp = 0;
             AIM_LOG_ERROR("Unable to get port temperature.\r\n");
+            check_xcvr_temp = 0;
+        }
+        else {
+            check_xcvr_temp = 1;
         }
 
-        check_xcvr_temp = 1;
     }
     else {
         check_xcvr_temp = 0; /*monitor xcvr port all unpresent*/
@@ -719,7 +723,7 @@ int onlp_sysi_platform_manage_fans(void)
             for ( i = 0; i < CHASSIS_THERMAL_COUNT; i++ )
             {
                 if( (thermal[i].mcelsius >= afi_thermal_spec.mid_to_max_temp[i]) &&
-                    (!check_xcvr_temp || max_port_temp >= afi_thermal_spec.xcvr_mid_to_max_temp ) )
+                    (check_xcvr_temp && max_port_temp >= afi_thermal_spec.xcvr_mid_to_max_temp ) )
                 {
                    AIM_SYSLOG_WARN("Temperature is over the error threshold",
                                    "Temperature is over the error threshold",
@@ -737,7 +741,7 @@ int onlp_sysi_platform_manage_fans(void)
             for ( i = 0; i < CHASSIS_THERMAL_COUNT; i++ )
             {
                 if( (thermal[i].mcelsius <= afi_thermal_spec.max_to_mid_temp[i]) &&
-                    (!check_xcvr_temp || max_port_temp <= afi_thermal_spec.xcvr_max_to_mid_temp) && (fan_fail==0) )
+                    (check_xcvr_temp && max_port_temp <= afi_thermal_spec.xcvr_max_to_mid_temp) && (fan_fail==0) )
                 {
                     max_to_mid++;
                 }
@@ -745,7 +749,7 @@ int onlp_sysi_platform_manage_fans(void)
                 if( !fan_alarm_state )
                 {
                     if( (thermal[i].mcelsius >= afi_thermal_spec.max_to_red_alarm_temp[i]) ||
-                        (!check_xcvr_temp || max_port_temp >= afi_thermal_spec.xcvr_max_to_red_alarm_temp) )
+                        (check_xcvr_temp && max_port_temp >= afi_thermal_spec.xcvr_max_to_red_alarm_temp) )
                     {
                         fan_alarm_state = LEVEL_FAN_RED_ALARM;
                         if( send_red_alarm == 0 )
@@ -817,7 +821,7 @@ int onlp_sysi_platform_manage_fans(void)
                 for (i=0; i <CHASSIS_THERMAL_COUNT; i++)
                 {
                     if( (thermal[i].mcelsius >= afo_thermal_spec.min_to_mid_temp[i]) ||
-                        (!check_xcvr_temp || max_port_temp >= afo_thermal_spec.xcvr_min_to_mid_temp) ) {
+                        (check_xcvr_temp && max_port_temp >= afo_thermal_spec.xcvr_min_to_mid_temp) ) {
                         AIM_SYSLOG_WARN("Temperature is over the warning threshold",
                                         "Temperature is over the warning threshold",
                                         "Warning threshold for temperature is detected");
@@ -833,7 +837,7 @@ int onlp_sysi_platform_manage_fans(void)
             for (i=0; i <CHASSIS_THERMAL_COUNT; i++)
             {
                 if ( (thermal[i].mcelsius >= afo_thermal_spec.mid_to_max_temp[i]) ||
-                     (!check_xcvr_temp || max_port_temp >= afo_thermal_spec.xcvr_mid_to_max_temp) )
+                     (check_xcvr_temp && max_port_temp >= afo_thermal_spec.xcvr_mid_to_max_temp) )
                 {
                     AIM_SYSLOG_WARN("Temperature is over the error threshold",
                                     "Temperature is over the error threshold",
@@ -844,7 +848,7 @@ int onlp_sysi_platform_manage_fans(void)
                 else
                 {
                     if ( (thermal[i].mcelsius <= afo_thermal_spec.mid_to_min_temp[i]) &&
-                         (!check_xcvr_temp || max_port_temp <= afo_thermal_spec.xcvr_mid_to_min_temp) && fan_fail==0 )
+                         (check_xcvr_temp && max_port_temp <= afo_thermal_spec.xcvr_mid_to_min_temp) && fan_fail==0 )
                     {
                         mid_to_min++;
                     }
@@ -856,7 +860,7 @@ int onlp_sysi_platform_manage_fans(void)
             for ( i = 0; i < CHASSIS_THERMAL_COUNT; i++ )
             {
                 if ( (thermal[i].mcelsius <= afo_thermal_spec.max_to_mid_temp[i]) &&
-                     (!check_xcvr_temp || max_port_temp <= afo_thermal_spec.xcvr_max_to_mid_temp) && fan_fail==0 )
+                     (check_xcvr_temp && max_port_temp <= afo_thermal_spec.xcvr_max_to_mid_temp) && fan_fail==0 )
                 {
                    max_to_mid++;
                 }
@@ -864,7 +868,7 @@ int onlp_sysi_platform_manage_fans(void)
                 if( !fan_alarm_state )
                 {
                     if( (thermal[i].mcelsius >= afo_thermal_spec.max_to_red_alarm_temp[i]) ||
-                        (!check_xcvr_temp || max_port_temp >= afo_thermal_spec.xcvr_max_to_red_alarm_temp) )
+                        (check_xcvr_temp && max_port_temp >= afo_thermal_spec.xcvr_max_to_red_alarm_temp) )
                     {
                         fan_alarm_state = LEVEL_FAN_RED_ALARM;
                         if( send_red_alarm == 0 )
@@ -981,10 +985,9 @@ int onlp_sysi_platform_manage_fans(void)
     }
     if(current_state!=ori_state && !fan_fail)
     {
-        fan_state=current_state;
         new_duty_cycle=onlp_sysi_get_duty_cycle_by_fan_state(current_state, direction_val);
 
-        if(new_duty_cycle!=current_duty_cycle && !fan_fail)
+        if(new_duty_cycle!=current_duty_cycle)
         {
             if (new_duty_cycle > current_duty_cycle) {
                 AIM_SYSLOG_WARN("Increase info", "Increase info", "Increase fan duty_cycle from %d%% to %d%%", current_duty_cycle, new_duty_cycle);
@@ -992,10 +995,13 @@ int onlp_sysi_platform_manage_fans(void)
             else{
                 AIM_SYSLOG_INFO("Decrease info", "Decrease info", "Decrease fan duty_cycle from %d%% to %d%%", current_duty_cycle, new_duty_cycle);
             }
+
             onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), new_duty_cycle);
+            fan_state=current_state;
+
             return 0;
         }
-        if(!new_duty_cycle && !fan_fail)
+        if(!new_duty_cycle)
         {
             onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), FAN_DUTY_CYCLE_MAX);
         }
