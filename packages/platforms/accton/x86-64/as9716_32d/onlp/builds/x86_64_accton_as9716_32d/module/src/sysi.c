@@ -33,6 +33,7 @@
 #include <onlp/platformi/thermali.h>
 #include <onlp/platformi/fani.h>
 #include <onlp/platformi/psui.h>
+#include <onlp/platformi/sfpi.h>
 #include "platform_lib.h"
 #include "x86_64_accton_as9716_32d_int.h"
 #include "x86_64_accton_as9716_32d_log.h"
@@ -59,10 +60,10 @@ onlp_sysi_platform_get(void)
 
 int
 onlp_sysi_onie_data_get(uint8_t** data, int* size)
-{    
+{
     uint8_t* rdata = aim_zmalloc(256);
-		
-    /*New board eeprom i2c-addr is 0x57. Old board's eeprom i2c-addr is 0x56*/		
+
+    /*New board eeprom i2c-addr is 0x57. Old board's eeprom i2c-addr is 0x56*/
     if(onlp_file_read(rdata, 256, size, IDPROM_PATH_1) == ONLP_STATUS_OK) /*0x57*/
     {
         if(*size == 256)
@@ -96,7 +97,7 @@ onlp_sysi_oids_get(onlp_oid_t* table, int max)
     int i;
     onlp_oid_t* e = table;
     memset(table, 0, max*sizeof(onlp_oid_t));
-    
+
     /* 8 Thermal sensors on the chassis */
     for (i = 1; i <= CHASSIS_THERMAL_COUNT; i++) {
         *e++ = ONLP_THERMAL_ID_CREATE(i);
@@ -124,16 +125,16 @@ int
 onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int   i, v[NUM_OF_CPLD]={0};
-	
+
     for (i = 0; i < NUM_OF_CPLD; i++) {
         v[i] = 0;
-		
+
         if(onlp_file_read_int(v+i, "%s%s/version", PREFIX_PATH_ON_CPLD_DEV, arr_cplddev_name[i]) < 0) {
             return ONLP_STATUS_E_INTERNAL;
         }
     }
     pi->cpld_versions = aim_fstrdup("%d.%d.%d", v[0], v[1], v[2]);
-	
+
     return 0;
 }
 
@@ -143,165 +144,190 @@ onlp_sysi_platform_info_free(onlp_platform_info_t* pi)
     aim_free(pi->cpld_versions);
 }
 
-/*Read fanN_direction=1: The air flow of Fan6 is ¡§AFI-Back to Front¡¨
- *                    0: The air flow of Fan6 is ¡§AFO-Front to back¡¨
+/*Read fanN_direction=1: The air flow of Fan6 is "AFI-Back to Front"
+ *                    0: The air flow of Fan6 is "AFO-Front to back"
  */
 /*
- Thermal policy:
- a.Defaut fan pwm=100%
- b.One fan fail, set to fan pwm=100%
- 1. For AFI:
-   Default fan pwm will be 100%(fan_state=LEVEL_FAN_MAX).
-   If all below case meet with, set to 75%(LEVEL_FAN_MID).
- MB board
- LM75-1(0X48)<=57
- LM75-2(0X49)<=47.3
- LM75-3(0X4A)<=45
- LM75-4(0X4C)<=45.1
- LM75-5(0X4E)<=40.75
- LM75-6(0X4F)<=42.1
- CPU board
- Core<=44 
- LM75-1(0X4B)<=35
- 
-   When fan_state=LEVEL_FAN_MID, meet with below case,  Fan pwm will be 100%(LEVEL_FAN_DAX)
- (MB board)
-   LM75-1(0X48)>=61.5
-   LM75-2(0X49)>=51.5
-   LM75-3(0X4A)>=49.4
-   LM75-4(0X4C)>=49.4
-   LM75-5(0X4E)>=45.1
-   LM75-6(0X4F)>=46.75
- (CPU board)
-   Core>=48 
-   LM75-1(0X4B)>=38.5
+ # Thermal policy:
+   a.Defaut fan duty_cycle=100%
+   b.One fan fail, set to fan duty_cycle=100%
 
- 2. For AFO:
-  At default, FAN pwm was 100%(LEVEL_FAN_MAX). If all below case meet with, set to 75%(LEVEL_FAN_MID).
- (MB board)
- LM75-1(0X48)<=59
- LM75-2(0X49)<=53.5
- LM75-3(0X4A)<=55.3
- LM75-4(0X4C)<=50.3
- LM75-5(0X4E)<=50
- LM75-6(0X4F)<=52.5
- (CPU board)
- Core<=59
- LM75-1(0X4B)<=41.1
+  1.For AFI:
+    Default fan duty_cycle will be 100%(fan_policy_state=LEVEL_FAN_MAX).
+    If all below case meet with, set to 75%(LEVEL_FAN_MID).
+    (MB board)
+        LM75-1(0X48)<=45.5
+        LM75-2(0X49)<=39.5
+        LM75-3(0X4A)<=37.5
+        LM75-4(0X4C)<=38.5
+        LM75-5(0X4E)<=34.5
+        LM75-6(0X4F)<=37
+    (CPU board)
+        Core(1~4) <=40
+        LM75-1(0X4B)<=30.5
+        ZR<=62
 
- When FAN pwm was 75%(LEVEL_FAN_MID). If all below case meet with, set to 50%(LEVEL_FAN_DEF).
- (MB board)
- LM75-1(0X48)<=55.8
- LM75-2(0X49)<=50.5
- LM75-3(0X4A)<=51.1
- LM75-4(0X4C)<=47.6
- LM75-5(0X4E)<=45.75
- LM75-6(0X4F)<=50.1
- (CPU board)
- Core<=57
- LM75-1(0X4B)<=36.6
+    When fan_policy_state=LEVEL_FAN_MID, meet with below case,  Fan duty_cycle will be 100%(LEVEL_FAN_MAX)
+    (MB board)
+        LM75-1(0X48)>=51.5
+        LM75-2(0X49)>=44.5
+        LM75-3(0X4A)>=43.5
+        LM75-4(0X4C)>=43.5
+        LM75-5(0X4E)>=40
+        LM75-6(0X4F)>=42.5
+    (CPU board)
+        Core-1>=45, Core-2>=45, Core-3>=46, Core-4>=46
+        LM75-1(0X4B)>=35.5
+        ZR>=65
 
- When fan_speed 50%(LEVEL_FAN_DEF).
- Meet with below case, Fan pwm will be 75%(LEVEL_FAN_MID)
- (MB board)
- LM75-1(0X48)>=70
- LM75-2(0X49)>=66
- LM75-3(0X4A)>=68
- LM75-4(0X4C)>=62
- LM75-5(0X4E)>=62
- LM75-6(0X4F)>=67
- (CPU board)
- Core>=77
- LM75-1(0X4B)>=50
+    # Red Alarm
+    (MB board)
+        LM75-1(0X48)>=65
+        LM75-2(0X49)>=58
+        LM75-3(0X4A)>=57
+        LM75-4(0X4C)>=57
+        LM75-5(0X4E)>=57
+        LM75-6(0X4F)>=60
+    (CPU board)
+        Core>=60
+        LM75-1(0X4B)>=50
+        ZR>=75
 
- 
- When FAN pwm was 75%(LEVEL_FAN_MID). If all below case meet with, set to 100%(LEVEL_FAN_MAX).
- (MB board)
- LM75-1(0X48)>=67
- LM75-2(0X49)>=62.5
- LM75-3(0X4A)>=65
- LM75-4(0X4C)>=59
- LM75-5(0X4E)>=58.5
- LM75-6(0X4F)>=63
- (CPU board)
- Core >=69
- LM75-1(0X4B)>=49
- 
- Yellow Alarm
- MB board
- LM75-1(0X48)>=68
- LM75-2(0X49)>=64
- LM75-3(0X4A)>=65
- LM75-4(0X4C)>=61
- LM75-5(0X4E)>=60
- LM75-6(0X4F)>=64
- CPU Board
- Core>=70
- LM75-1(0X4B)>=68
+    # Shutdown
+    (MB board)
+        LM75-1(0X48)>=71
+        LM75-2(0X49)>=64
+        LM75-3(0X4A)>=63
+        LM75-4(0X4C)>=63
+        LM75-5(0X4E)>=63
+        LM75-6(0X4F)>=66
+     (CPU board)
+        Core>=66
+        LM75-1(0X4B)>=56
+        ZR>=82
 
- Red Alarm
- MB board
- LM75-1(0X48)>=72
- LM75-2(0X49)>=68
- LM75-3(0X4A)>=69
- LM75-4(0X4C)>=65
- LM75-5(0X4E)>=64
- LM75-6(0X4F)>=68
- CPU Board
- Core>=74
- LM75-1(0X4B)>=72
+  2.For AFO:
+    At default, FAN duty_cycle was 100%(LEVEL_FAN_MAX). If all below case meet with, set to 75%(LEVEL_FAN_MID).
+    (MB board)
+        LM75-1(0X48)<=47
+        LM75-2(0X49)<=47
+        LM75-3(0X4A)<=47
+        LM75-4(0X4C)<=47
+        LM75-5(0X4E)<=47
+        LM75-6(0X4F)<=47
+    (CPU board)
+        Core-(1~4)<=55
+        LM75-1(0X4B)<=40
+        ZR<=60
 
- Shutdown
- MB board
- LM75-1(0X48)>=77
- LM75-2(0X49)>=73
- LM75-3(0X4A)>=74
- LM75-4(0X4C)>=70
- LM75-5(0X4E)>=69
- LM75-6(0X4F)>=73
- CPU Board
- Core>=79
- LM75-1(0X4B)>=77
+    When FAN duty_cycle was 75%(LEVEL_FAN_MID). If all below case meet with, set to 50%(LEVEL_FAN_DEF).
+    (MB board)
+        LM75-1(0X48)<=40
+        LM75-2(0X49)<=40
+        LM75-3(0X4A)<=40
+        LM75-4(0X4C)<=40
+        LM75-5(0X4E)<=40
+        LM75-6(0X4F)<=40
+    (CPU board)
+        Core-(1~4)<=50
+        LM75-1(0X4B)<=33
+        ZR<=55
 
+    When fan_speed 50%(LEVEL_FAN_DEF).
+    Meet with below case, Fan duty_cycle will be 75%(LEVEL_FAN_MID)
+    (MB board)
+        LM75-1(0X48)>=63
+        LM75-2(0X49)>=63
+        LM75-3(0X4A)>=63
+        LM75-4(0X4C)>=63
+        LM75-5(0X4E)>=63
+        LM75-6(0X4F)>=63
+    (CPU board)
+        Core-(1~4)>=73
+        LM75-1(0X4B)>=50
+        ZR>=65
 
+    When FAN duty_cycle was 75%(LEVEL_FAN_MID). If all below case meet with, set to 100%(LEVEL_FAN_MAX).
+    (MB board)
+        LM75-1(0X48)>=68
+        LM75-2(0X49)>=68
+        LM75-3(0X4A)>=68
+        LM75-4(0X4C)>=68
+        LM75-5(0X4E)>=68
+        LM75-6(0X4F)>=68
+        (CPU board)
+        Core-(1~4)>=77
+        LM75-1(0X4B)>=55
+        ZR>=70
+
+    # Red Alarm
+    (MB board)
+        LM75-1(0X48)>=72
+        LM75-2(0X49)>=72
+        LM75-3(0X4A)>=72
+        LM75-4(0X4C)>=72
+        LM75-5(0X4E)>=72
+        LM75-6(0X4F)>=72
+    (CPU board)
+        Core>=81
+        LM75-1(0X4B)>=60
+        ZR>=75
+
+    # Shutdown
+    (MB board)
+        LM75-1(0X48)>=78
+        LM75-2(0X49)>=78
+        LM75-3(0X4A)>=78
+        LM75-4(0X4C)>=78
+        LM75-5(0X4E)>=78
+        LM75-6(0X4F)>=78
+     (CPU board)
+        Core>=87
+        LM75-1(0X4B)>=70
+        ZR>=82
  */
 
+ #define MONITOR_PORT_NUM 8
+ static int monitor_port[MONITOR_PORT_NUM] = {5, 6, 11, 12, 19, 20, 31, 32};
+
 typedef struct afi_temp_range{
-    int mid_to_max_temp[8];
-    int max_to_mid_temp[8];
+    int mid_to_max_temp[16];
+    int max_to_mid_temp[16];
+    int max_to_red_alarm_temp[16];
+    int red_alarm_to_shutdown_temp[16];
 }afi_temp_range_t;
- 
+
 afi_temp_range_t afi_thermal_spec={
- {61500, 51500, 49400, 49400, 45100, 46750, 48000, 38500},
- {57000, 47300, 45000, 45100, 40750, 42100, 44000, 35000}
+    {51500, 44500, 43500, 43500, 40000, 42500, 45000, 35500,   65000, 65000, 65000, 65000, 65000, 65000, 65000, 65000},
+    {45500, 39500, 37500, 38500, 34500, 37000, 40000, 30500,   62000, 62000, 62000, 62000, 62000, 62000, 62000, 62000},
+    {65000, 58000, 57000, 57000, 57000, 60000, 60000, 50000,   75000, 75000, 75000, 75000, 75000, 75000, 75000, 75000},
+    {71000, 64000, 63000, 63000, 63000, 66000, 66000, 56000,   82000, 82000, 82000, 82000, 82000, 82000, 82000, 82000}
 };
 
 typedef struct afo_temp_range{
-    int min_to_mid_temp[8];
-    int mid_to_max_temp[8];
-    int max_to_mid_temp[8];
-    int mid_to_min_temp[8];
-    int max_to_yellow_alarm_temp[8];
-    int yellow_to_red_alarm_temp[8];
-    int red_alarm_to_shutdown_temp[8];
-} afo_temp_range_t; 
-  
+    int min_to_mid_temp[16];
+    int mid_to_max_temp[16];
+    int max_to_mid_temp[16];
+    int mid_to_min_temp[16];
+    int max_to_red_alarm_temp[16];
+    int red_alarm_to_shutdown_temp[16];
+} afo_temp_range_t;
+
 afo_temp_range_t afo_thermal_spec={
- {70000, 66000, 68000, 62000, 62000, 67000, 77000, 50000},
- {67000, 62000, 65000, 59000, 58500, 63000, 69000, 49000}, 
- {59000, 53500, 55300, 50300, 50000, 52500, 59000, 41100},
- {55800, 50500, 51100, 47600, 45750, 50100, 57000, 36600},
- {68000, 64000, 65000, 61000, 60000, 64000, 70000, 68000},
- {72000, 68000, 69000, 65000, 64000, 68000, 74000, 72000}, 
- {77000, 73000, 74000, 70000, 69000, 73000, 79000, 77000}
+    {63000, 63000, 63000, 63000, 63000, 63000, 73000, 50000,   65000, 65000, 65000, 65000, 65000, 65000, 65000, 65000},
+    {68000, 68000, 68000, 68000, 68000, 68000, 77000, 55000,   70000, 70000, 70000, 70000, 70000, 70000, 70000, 70000},
+    {47000, 47000, 47000, 47000, 47000, 47000, 55000, 40000,   60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000},
+    {40000, 40000, 40000, 40000, 40000, 40000, 50000, 33000,   55000, 55000, 55000, 55000, 55000, 55000, 55000, 55000},
+    {72000, 72000, 72000, 72000, 72000, 72000, 81000, 60000,   75000, 75000, 75000, 75000, 75000, 75000, 75000, 75000},
+    {78000, 78000, 78000, 78000, 78000, 78000, 87000, 70000,   82000, 82000, 82000, 82000, 82000, 82000, 82000, 82000}
 };
 
 typedef struct fan_ctrl_policy {
-   int duty_cycle; 
+   int duty_cycle;
    int pwm;
    int state;
 } fan_ctrl_policy_t;
-   
+
 /*For AFI. 2 state. LEVEL_FAN_MID(75%), LEVEL_FAN_MAX(100%)
   For AFO. 3 state. LEVEL_FAN_MIN(50%), LEVEL_FAN_MID(75%), LEVEL_FAN_MAX(100%)
  */
@@ -312,31 +338,62 @@ enum
    LEVEL_FAN_MID=2,
    LEVEL_FAN_MAX=3,
    LEVEL_FAN_DEF=LEVEL_FAN_MAX,
-   LEVEL_FAN_YELLOW_ALARM=4,
-   LEVEL_FAN_RED_ALARM=5,
-   LEVEL_FAN_SHUTDOWN=6,
+   LEVEL_FAN_RED_ALARM=4,
+   LEVEL_FAN_SHUTDOWN=5,
 };
 
 fan_ctrl_policy_t  fan_thermal_policy_f2b[] = { /*AFO*/
-{50,  0x7, LEVEL_FAN_MIN},
-{75,  0xb, LEVEL_FAN_MID},
-{100, 0xf, LEVEL_FAN_MAX},
-    
+    {50,  0x7, LEVEL_FAN_MIN},
+    {75,  0xb, LEVEL_FAN_MID},
+    {100, 0xf, LEVEL_FAN_MAX},
 };
 
 fan_ctrl_policy_t  fan_thermal_policy_b2f[] = { /*AFI*/
-{75,  0xb, LEVEL_FAN_MID},
-{100, 0xf, LEVEL_FAN_MAX}
+    {75,  0xb, LEVEL_FAN_MID},
+    {100, 0xf, LEVEL_FAN_MAX}
 };
-    
+
+typedef struct{
+    int port_num;
+    char port_name[8];
+}onlp_xcvr_info_t;
+
+typedef struct {
+    onlp_thermal_info_t thermal;
+    onlp_xcvr_info_t xcvr;
+    int temp;
+    int type;
+}onlp_sensor_info_t;
+
+typedef enum {
+    TYPE_SENSOR = 0,
+    TYPE_TRANSCEIVER = 1,
+    TYPE_MAX = 2
+} sensor_type_t;
+
 void onlp_sysi_shutdown(void)
 {
-    char cmd_str[64];
-    memset(cmd_str, 0x0, strlen(cmd_str));    
-    snprintf(cmd_str, 63, "i2cset -y -f 19 0x60 0x60 0x10");
-    system(cmd_str); 
+    int ret;
+
+    /* Sync log buffer to disk */
+    ret = system("sync");
+    if (ret != 0) {
+        AIM_LOG_ERROR("sync failed (ret=%d)\n", ret);
+    }
+
+    ret = system("/sbin/fstrim -av");
+    if (ret != 0) {
+        AIM_LOG_ERROR("fstrim failed (ret=%d)\n", ret);
+    }
+
+    system("sleep 3");
+
+    ret = system("i2cset -y -f 19 0x60 0x60 0x10");
+    if (ret != 0) {
+        AIM_LOG_ERROR("i2cset failed (ret=%d)\n", ret);
+    }
 }
-    
+
 int onlp_sysi_get_duty_cycle_by_fan_state(int state, int direction)
 {
     int i;
@@ -360,17 +417,17 @@ int onlp_sysi_get_duty_cycle_by_fan_state(int state, int direction)
             }
         }
     }
-    return 0;     
-   
-}    
+    return 0;
+
+}
 /*
  * If only one PSU insert , and watt >800w. Must let DUT fan pwm >= 75% in AFO.
  *  Because the psu temp is high.
  */
- 
+
 /* Return 1: full load
  * Return 0: Not full load
- */ 
+ */
 int onlp_sysi_check_psu_loading(void)
 {
     int psu_power_good[2]={1, 1};
@@ -378,7 +435,7 @@ int onlp_sysi_check_psu_loading(void)
     int psu_p_out[2]={0, 0};
     int id=1;
     int check_psu_watt=0;
-    
+
     for (id=1; id<=2; id++)
     {
         if (psu_status_info_get(id, "psu_power_good", &psu_power_good[id-1]) != 0) {
@@ -415,25 +472,121 @@ int onlp_sysi_check_psu_loading(void)
     }
     else
         return 0;
-    
-    
+
+
     return 0;
-    
+
 }
 
 #define FAN_SPEED_CTRL_PATH "/sys/bus/i2c/devices/17-0066/fan_duty_cycle_percentage"
 #define FAN_DIRECTION_PATH "/sys/bus/i2c/devices/17-0066/fan1_direction"
 #define CHECK_TIMES 3
-    
+
 static int fan_state=LEVEL_FAN_INIT;
 static int fan_fail = 0;
 
 static int fan_alarm_state=LEVEL_FAN_INIT;
-static int send_yellow_alarm=0;
 static int send_red_alarm=0;
+static int xcvr_shutdown_flag = 0;
 static int count_check=0;
 
 int current_duty_cycle, new_duty_cycle;
+
+int onlp_sysi_get_sff8436_temp(int port, int *temp)
+{
+    int value;
+    int16_t port_temp;
+
+    /* Read memory model */
+    value = onlp_sfpi_dev_readb(port, 0x50, 0x2);
+    if (value & 0x04) {
+        *temp = ONLP_STATUS_E_MISSING;
+        return ONLP_STATUS_OK;
+    }
+
+    value = onlp_sfpi_dev_readb(port, 0x50, 22);
+    if (value < 0) {
+        *temp = ONLP_STATUS_E_MISSING;
+        return ONLP_STATUS_OK;
+    }
+    port_temp = (int16_t)((value & 0xFF) << 8);
+
+    value = onlp_sfpi_dev_readb(port, 0x50, 23);
+    if (value < 0) {
+        *temp = ONLP_STATUS_E_MISSING;
+        return ONLP_STATUS_OK;
+    }
+    port_temp = (port_temp | (int16_t)(value & 0xFF));
+    *temp = (int)port_temp * 1000 / 256;
+
+    return ONLP_STATUS_OK;
+}
+
+int onlp_sysi_get_cmis_temp(int port, int *temp)
+{
+    int value;
+    int16_t port_temp;
+
+    /* Read memory model */
+    value = onlp_sfpi_dev_readb(port, 0x50, 0x2);
+    if (value & 0x80) {
+        *temp = ONLP_STATUS_E_MISSING;
+        return ONLP_STATUS_OK;
+    }
+
+    value = onlp_sfpi_dev_readb(port, 0x50, 14);
+    if (value < 0) {
+        *temp = ONLP_STATUS_E_MISSING;
+        return ONLP_STATUS_OK;
+    }
+    port_temp = (int16_t)((value & 0xFF) << 8);
+
+    value = onlp_sfpi_dev_readb(port, 0x50, 15);
+    if (value < 0) {
+        *temp = ONLP_STATUS_E_MISSING;
+        return ONLP_STATUS_OK;
+    }
+    port_temp = (port_temp | (int16_t)(value & 0xFF));
+
+    *temp = (int)port_temp * 1000 / 256;
+    return ONLP_STATUS_OK;
+}
+
+int onlp_sysi_get_xcvr_temp(int port, int *temp)
+{
+    int value = 0, ret = 0;
+    int port_temp = 0;
+
+    *temp = ONLP_STATUS_E_MISSING;
+
+    if (!onlp_sfpi_is_present(port)) {
+        return ONLP_STATUS_OK;
+    }
+
+    /*Check xcvr identifier*/
+    value = onlp_sfpi_dev_readb(port, 0x50, 0);
+    if (value < 0) {
+        AIM_LOG_ERROR("Unable to get read port(%d) eeprom\r\n", port);
+        return ONLP_STATUS_OK;
+    }
+    if (value == 0x18 || value == 0x19 || value == 0x1E) {
+        ret = onlp_sysi_get_cmis_temp(port, &port_temp);
+        if (ret != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to get port temperature.\r\n");
+            return ONLP_STATUS_OK;
+        }
+    }
+    else if (value == 0x0C || value == 0x0D || value == 0x11 || value ==  0xE1) {
+        ret = onlp_sysi_get_sff8436_temp(port, &port_temp);
+        if (ret != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to get port temperature.\r\n");
+            return ONLP_STATUS_OK;
+        }
+    }
+    *temp = port_temp;
+
+    return ONLP_STATUS_OK;
+}
 
 int onlp_sysi_platform_manage_fans(void)
 {
@@ -441,61 +594,91 @@ int onlp_sysi_platform_manage_fans(void)
     int fd, len, direction_val=1;
     int max_to_mid=0, mid_to_min=0; /* Only this flag equal to 8, otherwise state can not to be down.*/
     int psu_full_load=0;
-    onlp_thermal_info_t thermal[8];
+    int port = 0;
+    int port_temp = ONLP_STATUS_E_MISSING, max_port_temp = ONLP_STATUS_E_MISSING;
+    onlp_sensor_info_t sensor_info[CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM];
     char  buf[10] = {0};
-    
+
     /* Get fan direction
      */
     if (onlp_file_read_int(&direction_val, FAN_DIRECTION_PATH) < 0) {
-        AIM_LOG_ERROR("Unable to read status from file (%s)\r\n", FAN_DIRECTION_PATH); 
+        AIM_LOG_ERROR("Unable to read status from file (%s)\r\n", FAN_DIRECTION_PATH);
     }
-    
+
     if(fan_state==LEVEL_FAN_INIT)
     {
         fan_state=LEVEL_FAN_MAX; /*This is default state*/
         onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), 100);
         return ONLP_STATUS_OK;
     }
+
     count_check++;
-    if(count_check < CHECK_TIMES)    
-        return ONLP_STATUS_OK;    
+    if(count_check < CHECK_TIMES)
+        return ONLP_STATUS_OK;
     else
         count_check=0;
-        
+
     /* Get current temperature
      */
     for (i=2; i <5; i++)
     {
-        if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(i), &thermal[k]) != ONLP_STATUS_OK  )
-        {
-            AIM_LOG_ERROR("Unable to read thermal status, set fans to full speed");
-            onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), 100);
-            return ONLP_STATUS_E_INTERNAL;
-       }
-        k++; 
-    }    
-    for (i=6; i <=8; i++)
-    {
-        if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(i), &thermal[k]) != ONLP_STATUS_OK  )
+        if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(i), &sensor_info[k].thermal) != ONLP_STATUS_OK  )
         {
             AIM_LOG_ERROR("Unable to read thermal status, set fans to full speed");
             onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), 100);
             return ONLP_STATUS_E_INTERNAL;
         }
-        k++; 
+        k++;
     }
-    if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(1), &thermal[6]) != ONLP_STATUS_OK  )
+    for (i=6; i <=8; i++)
+    {
+        if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(i), &sensor_info[k].thermal) != ONLP_STATUS_OK  )
+        {
+            AIM_LOG_ERROR("Unable to read thermal status, set fans to full speed");
+            onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), 100);
+            return ONLP_STATUS_E_INTERNAL;
+        }
+        k++;
+    }
+    if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(1), &sensor_info[6].thermal) != ONLP_STATUS_OK  )
     {
         AIM_LOG_ERROR("Unable to read thermal status, set fans to full speed");
         onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), 100);
         return ONLP_STATUS_E_INTERNAL;
     }
-    if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(5), &thermal[7]) != ONLP_STATUS_OK  )
+
+    if (onlp_thermali_info_get(ONLP_THERMAL_ID_CREATE(5), &sensor_info[7].thermal) != ONLP_STATUS_OK  )
     {
         AIM_LOG_ERROR("Unable to read thermal status, set fans to  full speed");
         onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), 100);
         return ONLP_STATUS_E_INTERNAL;
     }
+
+    /*thermal temp*/
+    for ( i = 0; i < CHASSIS_THERMAL_COUNT; i++ ) {
+       sensor_info[i].temp=sensor_info[i].thermal.mcelsius;
+       sensor_info[i].type=TYPE_SENSOR;
+    }
+
+
+    /* Get xcvr current temperature
+     */
+    for (i = 0; i < MONITOR_PORT_NUM; i++)
+    {
+        port = monitor_port[i] - 1;
+
+        if(onlp_sysi_get_xcvr_temp(port, &port_temp) == ONLP_STATUS_OK)
+        {
+            if (port_temp > max_port_temp) {
+                max_port_temp = port_temp;
+            }
+        }
+        sensor_info[CHASSIS_THERMAL_COUNT + i].temp = port_temp;
+        sensor_info[CHASSIS_THERMAL_COUNT + i].type = TYPE_TRANSCEIVER;
+        sensor_info[CHASSIS_THERMAL_COUNT + i].xcvr.port_num = monitor_port[i];
+        sprintf(sensor_info[CHASSIS_THERMAL_COUNT + i].xcvr.port_name, "port %d", monitor_port[i]);
+    }
+
     /* Get current fan pwm percent
      */
     fd = open(FAN_SPEED_CTRL_PATH, O_RDONLY);
@@ -504,7 +687,7 @@ int onlp_sysi_platform_manage_fans(void)
         return ONLP_STATUS_E_INTERNAL;
     }
     len = read(fd, buf, sizeof(buf));
-    close(fd);    
+    close(fd);
     if (len <= 0) {
         AIM_LOG_ERROR("Unable to read fan speed from (%s)", FAN_SPEED_CTRL_PATH);
         return ONLP_STATUS_E_INTERNAL;
@@ -513,132 +696,245 @@ int onlp_sysi_platform_manage_fans(void)
     ori_state=fan_state;
     current_state=fan_state;
 
+    mid_to_min = 0;
+    max_to_mid = 0;
     /* Check thermal is in which range. */
-    max_to_mid=0;
-    if(direction_val==1) /* AFI */
+    if( direction_val == 1 ) /* AFI */
     {
-        for (i=0; i <CHASSIS_THERMAL_COUNT; i++)
+        if( ori_state == LEVEL_FAN_MID )
         {
-            if(ori_state==LEVEL_FAN_MID)
+            for ( i = 0; i < CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM; i++ )
             {
-                if (thermal[i].mcelsius >= afi_thermal_spec.mid_to_max_temp[i] && fan_fail==0)
+                if(sensor_info[i].temp >= afi_thermal_spec.mid_to_max_temp[i])
                 {
-                   current_state=LEVEL_FAN_MAX;
-                   break;  
+                   AIM_SYSLOG_WARN("Temperature is over the error threshold",
+                                   "Temperature is over the error threshold",
+                                   "Monitor %s, temperature is %.1f. Temperature is over the error threshold(%.1f) of thermal policy.",
+                                    (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
+                                    (double)sensor_info[i].temp/1000,
+                                    (double)afi_thermal_spec.mid_to_max_temp[i]/1000);
+                   current_state = LEVEL_FAN_MAX;
+                   break;
+                }
+                else {
+                    current_state = LEVEL_FAN_MID;
                 }
             }
-            else
+        }
+        else /*LEVEL_FAN_MAX*/
+        {
+            for ( i = 0; i < CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM; i++ )
             {
-                if (thermal[i].mcelsius <= afi_thermal_spec.max_to_mid_temp[i])
+                if( (sensor_info[i].temp <= afi_thermal_spec.max_to_mid_temp[i]) && (fan_fail==0) )
                 {
                     max_to_mid++;
-                }            
+                }
+
+                if( !fan_alarm_state )
+                {
+                    if(sensor_info[i].temp >= afi_thermal_spec.max_to_red_alarm_temp[i])
+                    {
+                        fan_alarm_state = LEVEL_FAN_RED_ALARM;
+                        if( send_red_alarm == 0 )
+                        {
+                            send_red_alarm = 1;
+                            AIM_SYSLOG_WARN("Temperature is over the critical threshold",
+                                            "Temperature is over the critical threshold",
+                                            "Monitor %s, temperature is %.1f. Temperature is over the critical threshold(%.1f) of thermal policy.",
+                                             (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
+                                             (double)sensor_info[i].temp/1000,
+                                             (double)afi_thermal_spec.max_to_red_alarm_temp[i]/1000);
+                            break;
+                        }
+                    }
+                }
+                else if( fan_alarm_state == LEVEL_FAN_RED_ALARM )
+                {
+                    if (sensor_info[i].temp >= afi_thermal_spec.red_alarm_to_shutdown_temp[i])
+                    {
+                        fan_alarm_state = LEVEL_FAN_SHUTDOWN;
+                        if(i < CHASSIS_THERMAL_COUNT)
+                        {
+                            sleep(1);
+                            AIM_SYSLOG_CRIT("Temperature is over the shutdown threshold",
+                                            "Temperature is over the shutdown threshold",
+                                            "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
+                                             sensor_info[i].thermal.hdr.description,
+                                             (double)sensor_info[i].temp/1000,
+                                             (double)afi_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
+                            onlp_sysi_shutdown();
+                        }
+                        else /*ZR xcvr do HW protect*/
+                        {
+                            if(!xcvr_shutdown_flag) {
+                                xcvr_shutdown_flag = 1;
+                                AIM_SYSLOG_CRIT("XCVR temperature is over the shutdown threshold",
+                                                "XCVR temperature is over the shutdown threshold",
+                                                "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
+                                                sensor_info[i].xcvr.port_name,
+                                                (double)sensor_info[i].temp/1000,
+                                                (double)afi_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
+                            }
+                        }
+                    }
+                }
             }
         }
-        if(max_to_mid==CHASSIS_THERMAL_COUNT && fan_state==LEVEL_FAN_MAX)
+
+        if(max_to_mid==(CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM) && fan_state==LEVEL_FAN_MAX)
         {
             if (fan_fail==0)
             {
                 current_state=LEVEL_FAN_MID;
             }
+            if (fan_alarm_state)
+            {
+                fan_alarm_state=0;
+                send_red_alarm=0;
+                xcvr_shutdown_flag = 0;
+            }
+            AIM_SYSLOG_INFO("temperature is less than the error threshold",
+                            "temperature is less than the error threshold",
+                            "Monitor all sensors, temperature is less than the error threshold of thermal policy.");
         }
     }
     else  /* AFO */
     {
-        psu_full_load=onlp_sysi_check_psu_loading();
-        for (i=0; i <CHASSIS_THERMAL_COUNT; i++)
+        psu_full_load = onlp_sysi_check_psu_loading();
+
+        if (ori_state==LEVEL_FAN_MIN)
         {
-            if (ori_state==LEVEL_FAN_MID)
+            if(psu_full_load==1)
             {
-                if (thermal[i].mcelsius >= afo_thermal_spec.mid_to_max_temp[i] && fan_fail==0)
+                 current_state = LEVEL_FAN_MID;
+            }
+            else
+            {
+                for (i=0; i <CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM; i++)
                 {
+                    if(sensor_info[i].temp >= afo_thermal_spec.min_to_mid_temp[i]) {
+                        AIM_SYSLOG_WARN("Temperature is over the warning threshold",
+                                        "Temperature is over the warning threshold",
+                                        "Monitor %s, temperature is %.1f. Temperature is over the warning threshold(%.1f) of thermal policy.",
+                                         (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
+                                         (double)sensor_info[i].temp/1000,
+                                         (double)afo_thermal_spec.min_to_mid_temp[i]/1000);
+                        current_state=LEVEL_FAN_MID;
+                        break;
+                    }
+                }
+            }
+
+        }
+        else if (ori_state == LEVEL_FAN_MID)
+        {
+            for (i=0; i <CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM; i++)
+            {
+                if(sensor_info[i].temp >= afo_thermal_spec.mid_to_max_temp[i])
+                {
+                    AIM_SYSLOG_WARN("Temperature is over the error threshold",
+                                    "Temperature is over the error threshold",
+                                    "Monitor %s, temperature is %.1f. Temperature is over the warning threshold(%.1f) of thermal policy.",
+                                     (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
+                                     (double)sensor_info[i].temp/1000,
+                                     (double)afo_thermal_spec.mid_to_max_temp[i]/1000);
                     current_state=LEVEL_FAN_MAX;
                     break;
                 }
                 else
                 {
-                    if (thermal[i].mcelsius <= afo_thermal_spec.mid_to_min_temp[i])
+                    if ( (sensor_info[i].temp <= afo_thermal_spec.mid_to_min_temp[i]) && fan_fail==0 )
                     {
                         mid_to_min++;
                     }
                 }
             }
-            else if (ori_state==LEVEL_FAN_MIN)
+        }
+        else
+        {
+            for ( i = 0; i < CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM; i++ )
             {
-                if(psu_full_load==1 && fan_fail==0 )
+                if ( sensor_info[i].temp <= afo_thermal_spec.max_to_mid_temp[i] && fan_fail==0 )
                 {
-                     current_state=LEVEL_FAN_MID;
+                   max_to_mid++;
                 }
-                else if (thermal[i].mcelsius >= afo_thermal_spec.min_to_mid_temp[i] && fan_fail==0 )
+
+                if( !fan_alarm_state )
                 {
-                    current_state=LEVEL_FAN_MID;               
-                }
-            }
-            else
-            {                
-                if (thermal[i].mcelsius <= afo_thermal_spec.max_to_mid_temp[i])
-                {
-                    max_to_mid++;
-                }    
-                if (!fan_alarm_state)
-                {
-                    if (thermal[i].mcelsius >= afo_thermal_spec.max_to_yellow_alarm_temp[i])
+                    if(sensor_info[i].temp >= afo_thermal_spec.max_to_red_alarm_temp[i])
                     {
-                        fan_alarm_state=LEVEL_FAN_YELLOW_ALARM;
-                        if(send_yellow_alarm==0)
+                        fan_alarm_state = LEVEL_FAN_RED_ALARM;
+                        if( send_red_alarm == 0 )
                         {
-                            send_yellow_alarm=1;
-                            AIM_SYSLOG_WARN("Temperature high", "Temperature high","Alarm-Yellow for temperature high is detected");
+                            send_red_alarm = 1;
+                            AIM_SYSLOG_WARN("Temperature is over the critical threshold",
+                                            "Temperature is over the critical threshold",
+                                            "Monitor %s, temperature is %.1f. Temperature is over the critical threshold(%.1f) of thermal policy.",
+                                             (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
+                                             (double)sensor_info[i].temp/1000,
+                                             (double)afo_thermal_spec.max_to_red_alarm_temp[i]/1000);
+                            break;
                         }
                     }
                 }
-                else if (fan_alarm_state==LEVEL_FAN_YELLOW_ALARM)
+                else if( fan_alarm_state == LEVEL_FAN_RED_ALARM )
                 {
-                    if (thermal[i].mcelsius >= afo_thermal_spec.yellow_to_red_alarm_temp[i])
+                    if (sensor_info[i].temp >= afo_thermal_spec.red_alarm_to_shutdown_temp[i])
                     {
-                        fan_alarm_state=LEVEL_FAN_RED_ALARM;
-                        if(send_red_alarm==0)
+                        fan_alarm_state = LEVEL_FAN_SHUTDOWN;
+                        if( i < CHASSIS_THERMAL_COUNT )
                         {
-                            send_red_alarm=1;
-                            AIM_SYSLOG_WARN("Temperature high", "Temperature high","Alarm-Red for temperature high is detected");
+                            sleep(1);
+                            AIM_SYSLOG_CRIT("Temperature is over the shutdown threshold",
+                                            "Temperature is over the shutdown threshold",
+                                            "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
+                                             (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
+                                             (double)sensor_info[i].temp/1000,
+                                             (double)afo_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
+                            onlp_sysi_shutdown();
+                        }
+                        else /*ZR xcvr do HW protect*/
+                        {
+                            if(!xcvr_shutdown_flag) {
+                                xcvr_shutdown_flag = 1;
+                                AIM_SYSLOG_CRIT("XCVR temperature is over the shutdown threshold",
+                                                "XCVR temperature is over the shutdown threshold",
+                                                "Monitor %s, temperature is %.1f. Temperature is over the shutdown threshold(%.1f) of thermal policy, shutdown DUT.",
+                                                sensor_info[i].xcvr.port_name,
+                                                (double)sensor_info[i].temp/1000,
+                                                (double)afo_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
+                            }
                         }
                     }
                 }
-                else if (fan_alarm_state==LEVEL_FAN_RED_ALARM)
-                {
-                    if (thermal[i].mcelsius >= afo_thermal_spec.red_alarm_to_shutdown_temp[i])
-                    {
-                        fan_alarm_state=LEVEL_FAN_SHUTDOWN;
-                        sleep(1);
-                        AIM_SYSLOG_CRIT("Temperature critical", "Temperature critical", "Alarm for temperature critical is detected, Shutdown DUT");
-                        system("sync");
-                        onlp_sysi_shutdown();                        
-                    }
-                }
-                
             }
         }
-        if(max_to_mid==CHASSIS_THERMAL_COUNT && ori_state==LEVEL_FAN_MAX)
+
+        if(max_to_mid==(CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM) && ori_state==LEVEL_FAN_MAX)
         {
             if (fan_fail==0) /*For fan fail or remove_test, don't set current_state to MID, must keep MAX*/
             {
-                current_state=LEVEL_FAN_MID;
+                current_state = LEVEL_FAN_MID;
             }
-           
-             
+
             if (fan_alarm_state)
             {
                 fan_alarm_state=0;
-                send_yellow_alarm=0;
                 send_red_alarm=0;
-                AIM_SYSLOG_INFO("Temperature high is clean", "Temperature high is clear", "Alarm for temperature high is cleared");
+                xcvr_shutdown_flag = 0;
             }
+            AIM_SYSLOG_INFO("temperature is less than the error threshold",
+                            "temperature is less than the error threshold",
+                            "Monitor all sensors, temperature is less than the error threshold of thermal policy.");
         }
-        if(mid_to_min==CHASSIS_THERMAL_COUNT && ori_state==LEVEL_FAN_MID)
+        if(mid_to_min==(CHASSIS_THERMAL_COUNT + MONITOR_PORT_NUM) && ori_state==LEVEL_FAN_MID)
         {
             if (!psu_full_load && fan_fail==0)
             {
                 current_state=LEVEL_FAN_MIN;
+                AIM_SYSLOG_INFO("temperature is less than the warning threshold",
+                                "temperature is less than the warning threshold",
+                                "Monitor all sensors, temperature is less than the warning of thermal policy.");
             }
         }
     }
@@ -673,7 +969,7 @@ int onlp_sysi_platform_manage_fans(void)
         }
         if (fan_info.status & ONLP_FAN_STATUS_FAILED || !(fan_info.status & ONLP_FAN_STATUS_PRESENT))
         {
-            AIM_LOG_ERROR("Fan(%d) is not working, set the other fans as full speed\r\n", i);
+            AIM_SYSLOG_WARN("Fan fail", "Fan fail", "Fan(%d) is not working, set the other fans as full speed\r\n", i);
             if(current_duty_cycle != FAN_DUTY_CYCLE_MAX)
             {
                 onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), FAN_DUTY_CYCLE_MAX);
@@ -681,34 +977,43 @@ int onlp_sysi_platform_manage_fans(void)
             fan_fail=1;
             if (fan_state <LEVEL_FAN_MAX)
             {
-                AIM_LOG_ERROR("fan(%d) fail, set fan_state=LEVEL_FAN_MAX\n", i);
+                AIM_LOG_ERROR("Fan(%d) fail, set duty_cycle to 100%%\n", i);
                 fan_state=LEVEL_FAN_MAX;
             }
             break;
         }
-        fan_fail=0;           	    
+        fan_fail=0;
     }
-    if(current_state!=ori_state)
+    if(current_state!=ori_state && !fan_fail)
     {
-        fan_state=current_state;
         new_duty_cycle=onlp_sysi_get_duty_cycle_by_fan_state(current_state, direction_val);
-        if(new_duty_cycle!=current_duty_cycle && !fan_fail)
+
+        if(new_duty_cycle!=current_duty_cycle)
         {
+            if (new_duty_cycle > current_duty_cycle) {
+                AIM_SYSLOG_WARN("Increase info", "Increase info", "Increase fan duty_cycle from %d%% to %d%%", current_duty_cycle, new_duty_cycle);
+            }
+            else{
+                AIM_SYSLOG_INFO("Decrease info", "Decrease info", "Decrease fan duty_cycle from %d%% to %d%%", current_duty_cycle, new_duty_cycle);
+            }
+
             onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), new_duty_cycle);
+            fan_state=current_state;
+
             return 0;
         }
-        if(!new_duty_cycle && !fan_fail)
+        if(!new_duty_cycle)
         {
             onlp_fani_percentage_set(ONLP_FAN_ID_CREATE(1), FAN_DUTY_CYCLE_MAX);
         }
     }
-  
+
     return 0;
-}   
+}
 
 int
 onlp_sysi_platform_manage_leds(void)
 {
     return ONLP_STATUS_E_UNSUPPORTED;
 }
-   
+
