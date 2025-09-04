@@ -750,6 +750,7 @@ int onlp_sysi_platform_manage_fans(void)
                 {
                     if (sensor_info[i].temp >= afi_thermal_spec.red_alarm_to_shutdown_temp[i])
                     {
+                        fan_alarm_state = LEVEL_FAN_SHUTDOWN;
                         if(i < CHASSIS_THERMAL_COUNT)
                         {
                             AIM_SYSLOG_CRIT("Temperature is over the shutdown threshold",
@@ -761,6 +762,7 @@ int onlp_sysi_platform_manage_fans(void)
                         }
                         else /*ZR xcvr do HW protect*/
                         {
+                            sleep(1);
                             if(!xcvr_shutdown_flag) {
                                 AIM_SYSLOG_CRIT("XCVR temperature is over the shutdown threshold",
                                                 "XCVR temperature is over the shutdown threshold",
@@ -768,6 +770,7 @@ int onlp_sysi_platform_manage_fans(void)
                                                 sensor_info[i].xcvr.port_name,
                                                 (double)sensor_info[i].temp/1000,
                                                 (double)afi_thermal_spec.red_alarm_to_shutdown_temp[i]/1000);
+                            onlp_sysi_shutdown();
                             }
                         }
                     }
