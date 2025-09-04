@@ -714,6 +714,7 @@ int onlp_sysi_platform_manage_fans(void)
                                     (double)sensor_info[i].temp/1000,
                                     (double)afi_thermal_spec.mid_to_max_temp[i]/1000);
                    current_state = LEVEL_FAN_MAX;
+                   break;
                 }
                 else {
                     current_state = LEVEL_FAN_MID;
@@ -743,6 +744,7 @@ int onlp_sysi_platform_manage_fans(void)
                                              (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
                                              (double)sensor_info[i].temp/1000,
                                              (double)afi_thermal_spec.max_to_red_alarm_temp[i]/1000);
+                            break;
                         }
                     }
                 }
@@ -818,6 +820,7 @@ int onlp_sysi_platform_manage_fans(void)
                                          (double)sensor_info[i].temp/1000,
                                          (double)afo_thermal_spec.min_to_mid_temp[i]/1000);
                         current_state=LEVEL_FAN_MID;
+                        break;
                     }
                 }
             }
@@ -836,6 +839,7 @@ int onlp_sysi_platform_manage_fans(void)
                                      (double)sensor_info[i].temp/1000,
                                      (double)afo_thermal_spec.mid_to_max_temp[i]/1000);
                     current_state=LEVEL_FAN_MAX;
+                    break;
                 }
                 else
                 {
@@ -869,6 +873,7 @@ int onlp_sysi_platform_manage_fans(void)
                                              (sensor_info[i].type==TYPE_SENSOR) ? sensor_info[i].thermal.hdr.description : sensor_info[i].xcvr.port_name,
                                              (double)sensor_info[i].temp/1000,
                                              (double)afo_thermal_spec.max_to_red_alarm_temp[i]/1000);
+                            break;
                         }
                     }
                 }
