@@ -142,6 +142,9 @@ psu_type_t psu_type_get(int id, char* modelname, int modelname_len)
             AIM_FREE_IF_PTR(model_string);
             return PSU_TYPE_AC_DPS850_F2B;
         }
+    }else if(strncmp(model_string, "G1441-0850WNB", strlen("G1441-0850WNB")) == 0){
+        AIM_FREE_IF_PTR(model_string);
+        return PSU_TYPE_DC_G1441_0850WNB_F2B;
     }
     /* Access length 8 data for 3Y PSU model compare */
     if (modelname) {
@@ -240,6 +243,19 @@ int psu_ym2651y_pmbus_info_set(int id, char *node, int value)
 }
 
 int psu_dps850_pmbus_info_get(int id, char *node, int *value)
+{
+	char *prefix = psu_pmbus_path(id);
+    *value = 0;
+
+    if (onlp_file_read_int(value, "%s%s", prefix, node) < 0) {
+        AIM_LOG_ERROR("Unable to read status from file(%s%s)\r\n", prefix, node);
+        return ONLP_STATUS_E_INTERNAL;
+    }
+
+    return ONLP_STATUS_OK;
+}
+
+int psu_g1441_pmbus_info_get(int id, char *node, int *value)
 {
 	char *prefix = psu_pmbus_path(id);
     *value = 0;
