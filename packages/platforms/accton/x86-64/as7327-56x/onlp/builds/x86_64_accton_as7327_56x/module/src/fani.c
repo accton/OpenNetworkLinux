@@ -99,12 +99,14 @@ onlp_fan_info_t finfo[] = {
 static int
 _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
 {
-	int val = 0;
+    int val = 0;
 
-	info->status |= ONLP_FAN_STATUS_PRESENT;
+    info->status |= ONLP_FAN_STATUS_PRESENT;
 
     /* get fan direction */
-    info->status |= ONLP_FAN_STATUS_B2F;
+    if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
+        info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+    }
 
     /* get fan fault status
      */
@@ -116,7 +118,7 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
      */
     if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
         info->rpm = val;
-	    info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;	    
+        info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
     }
 
     return ONLP_STATUS_OK;

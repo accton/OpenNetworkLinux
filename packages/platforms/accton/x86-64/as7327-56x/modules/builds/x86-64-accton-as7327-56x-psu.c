@@ -146,6 +146,7 @@ enum as7327_56x_sysfs_attributes {
     PSU_TEMP3_INPUT,
     PSU_FAN1_SPEED,
     PSU_FAN1_DUTY_CYCLE,
+    PSU_FAN_DIRECTION,
     PSU_MFR_ID,
     PSU_MFR_MODEL,
     PSU_MFR_REVISION,
@@ -174,6 +175,7 @@ static SENSOR_DEVICE_ATTR(psu_temp2_input,  S_IRUGO, show_linear,   NULL, PSU_TE
 static SENSOR_DEVICE_ATTR(psu_temp3_input,  S_IRUGO, show_linear,   NULL, PSU_TEMP3_INPUT);
 static SENSOR_DEVICE_ATTR(psu_fan1_speed_rpm, S_IRUGO, show_linear, NULL, PSU_FAN1_SPEED);
 static SENSOR_DEVICE_ATTR(psu_fan1_duty_cycle_percentage, S_IRUGO, show_word, NULL, PSU_FAN1_DUTY_CYCLE);
+static SENSOR_DEVICE_ATTR(psu_fan_dir,      S_IRUGO, show_word,     NULL, PSU_FAN_DIRECTION);
 static SENSOR_DEVICE_ATTR(psu_mfr_id,       S_IRUGO, show_ascii,  NULL, PSU_MFR_ID);
 static SENSOR_DEVICE_ATTR(psu_mfr_model,    S_IRUGO, show_ascii,  NULL, PSU_MFR_MODEL);
 static SENSOR_DEVICE_ATTR(psu_mfr_revision, S_IRUGO, show_ascii, NULL, PSU_MFR_REVISION);
@@ -200,6 +202,7 @@ static struct attribute *as7327_56x_attributes[] = {
     &sensor_dev_attr_psu_temp3_input.dev_attr.attr,
     &sensor_dev_attr_psu_fan1_speed_rpm.dev_attr.attr,
     &sensor_dev_attr_psu_fan1_duty_cycle_percentage.dev_attr.attr,
+    &sensor_dev_attr_psu_fan_dir.dev_attr.attr,
     &sensor_dev_attr_psu_mfr_id.dev_attr.attr,
     &sensor_dev_attr_psu_mfr_model.dev_attr.attr,
     &sensor_dev_attr_psu_mfr_revision.dev_attr.attr,
@@ -255,6 +258,12 @@ static ssize_t show_word(struct device *dev, struct device_attribute *da, char *
     case PSU_FAN1_DUTY_CYCLE:
         status = (data->fan_speed * 100) / PSU_MAX_FAN_SPEED;
         status = (status > 100) ? 100 : status;
+        break;
+    case PSU_FAN_DIRECTION: /* psu_fan_dir, 0=>F2B, 1=>B2F */
+        if ((strncmp((data->mfr_model + 1), "C1A-B0650-C", strlen("C1A-B0650-C")) == 0) ||
+            (strncmp((data->mfr_model + 1), "G1342-0800W", strlen("G1342-0800W")) == 0)){
+            status = 0;
+        }
         break;
     default:
         return 0;
@@ -536,7 +545,6 @@ static struct as7327_56x_data *as7327_56x_update_device(struct device *dev)
         struct reg_data_byte regs_byte[] = { {PMBUS_VOUT_MODE, &data->vout_mode},
                                              {PMBUS_STATUS_TEMPERATURE, &data->over_temp},
                                              {PMBUS_STATUS_FAN_12, &data->fan_fault},
-                                             {PMBUS_MFR_PSU_VIN_TYPE, &data->mfr_vin_type},
                                              {PMBUS_READ_LED_STATUS, &data->led_status},
                                              };
         struct reg_data_word regs_word[] = { {PMBUS_STATUS_WORD, &data->status_word},
@@ -601,6 +609,12 @@ static struct as7327_56x_data *as7327_56x_update_device(struct device *dev)
         if (status < 0) {
             dev_dbg(&client->dev, "reg %d, err %d\n", PMBUS_MFR_SERIAL, status);
             goto exit;
+        }
+
+        /* mfr_vin_type */
+        if ((strncmp((data->mfr_model + 1), "C1A-B0650-C", strlen("C1A-B0650-C")) == 0) ||
+            (strncmp((data->mfr_model + 1), "G1342-0800W", strlen("G1342-0800W")) == 0)){
+            data->mfr_vin_type = 1;
         }
 
         data->last_updated = jiffies;
