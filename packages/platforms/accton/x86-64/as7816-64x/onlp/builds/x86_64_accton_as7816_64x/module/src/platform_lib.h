@@ -84,6 +84,7 @@ typedef enum psu_type {
 	PSU_TYPE_DC_YM2851JER_F2B,
 	PSU_TYPE_DC_YM2851JFR_B2F,
 	PSU_TYPE_DC_G1441_0850WNB_F2B,
+	PSU_TYPE_DC_G1441_0850WNB_B2F
 } psu_type_t;
 
 enum onlp_fan_dir {

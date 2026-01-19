@@ -143,8 +143,23 @@ psu_type_t psu_type_get(int id, char* modelname, int modelname_len)
             return PSU_TYPE_AC_DPS850_F2B;
         }
     }else if(strncmp(model_string, "G1441-0850WNB", strlen("G1441-0850WNB")) == 0){
-        AIM_FREE_IF_PTR(model_string);
-        return PSU_TYPE_DC_G1441_0850WNB_F2B;
+        ret = onlp_file_read((uint8_t*)fan_dir, PSU_FAN_DIR_LEN, &value, "%s%s", prefix, "psu_fan_dir");
+        if (ret != ONLP_STATUS_OK)
+        {
+            AIM_LOG_ERROR("Unable to read psu fan dir\r\n");
+            AIM_FREE_IF_PTR(model_string);
+            return ONLP_STATUS_E_INTERNAL;
+        }
+        if (strncmp(fan_dir, "B2F", strlen("B2F")) == 0)
+        {
+            AIM_FREE_IF_PTR(model_string);
+            return PSU_TYPE_DC_G1441_0850WNB_B2F;
+        }
+        else
+        {
+            AIM_FREE_IF_PTR(model_string);
+            return PSU_TYPE_DC_G1441_0850WNB_F2B;
+        }
     }
     /* Access length 8 data for 3Y PSU model compare */
     if (modelname) {
