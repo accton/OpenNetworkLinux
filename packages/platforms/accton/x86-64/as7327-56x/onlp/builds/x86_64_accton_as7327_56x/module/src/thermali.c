@@ -28,9 +28,12 @@
 #include <onlp/platformi/thermali.h>
 #include "platform_lib.h"
 
-#define THERMAL_PATH_FORMAT 	"/sys/bus/i2c/devices/%s/*temp1_input"
-#define PSU_THERMAL_1_PATH_FORMAT "/sys/bus/i2c/devices/%s/*psu_temp1_input"
-#define PSU_THERMAL_2_PATH_FORMAT "/sys/bus/i2c/devices/%s/*psu_temp2_input"
+#define THERMAL_PATH_FORMAT         "/sys/bus/i2c/devices/%s/*temp1_input"
+#define THERMAL_BMC_BASE_PATH       "/sys/bus/platform/devices/as7327_56x_thermal_bmc/hwmon"
+
+#define PSU_THERMAL_PATH_FORMAT     "/sys/bus/i2c/devices/%s/*psu_temp%d_input"
+#define PSU1_THERMAL_BMC_BASE_PATH  "/sys/bus/platform/devices/as7327_56x_psu_bmc.0/hwmon"
+#define PSU2_THERMAL_BMC_BASE_PATH  "/sys/bus/platform/devices/as7327_56x_psu_bmc.1/hwmon"
 
 #define VALIDATE(_id)                           \
     do {                                        \
@@ -43,26 +46,45 @@ enum onlp_thermal_id
 {
     THERMAL_RESERVED = 0,
     THERMAL_CPU_CORE,
-    THERMAL_1_ON_MAIN_BROAD,
-    THERMAL_2_ON_MAIN_BROAD,
-    THERMAL_3_ON_MAIN_BROAD,
+    THERMAL_1_ON_MAIN_BOARD,
+    THERMAL_2_ON_MAIN_BOARD,
+    THERMAL_3_ON_MAIN_BOARD,
     THERMAL_1_ON_PSU1,
     THERMAL_2_ON_PSU1,
+    THERMAL_3_ON_PSU1,
     THERMAL_1_ON_PSU2,
     THERMAL_2_ON_PSU2,
+    THERMAL_3_ON_PSU2,
 };
 
 static char* directory[] =  /* must map with onlp_thermal_id */
 {
     NULL,
-    NULL,                  /* CPU_CORE files */
-    "7-004c",
-    "7-004b",
-    "7-004a",
-    "1-005a",
-    "1-005a",
-    "2-0059",
-    "2-0059",
+    NULL,                  /* CPU_CORE files          */
+    "7-004c",              /* Thermal 1 on main board */
+    "7-004b",              /* Thermal 2 on main board */
+    "7-004a",              /* Thermal 3 on main board */
+    "1-005a",              /* Thermal 1 on PSU1       */
+    "1-005a",              /* Thermal 2 on PSU1       */
+    "1-005a",              /* Thermal 3 on PSU1       */
+    "2-0059",              /* Thermal 1 on PSU2       */
+    "2-0059",              /* Thermal 2 on PSU2       */
+    "2-0059",              /* Thermal 3 on PSU2       */
+};
+
+static char* directory_bmc[] =  /* must map with onlp_thermal_id */
+{
+    NULL,
+    NULL,                  /* CPU_CORE files          */
+    "1",                   /* Thermal 1 on main board */
+    "2",                   /* Thermal 2 on main board */
+    "3",                   /* Thermal 3 on main board */
+    NULL,                  /* Thermal 1 on PSU1       */
+    NULL,                  /* Thermal 2 on PSU1       */
+    NULL,                  /* Thermal 3 on PSU1       */
+    NULL,                  /* Thermal 1 on PSU2       */
+    NULL,                  /* Thermal 2 on PSU2       */
+    NULL,                  /* Thermal 3 on PSU2       */
 };
 
 static char* cpu_coretemp_files[] =
@@ -76,36 +98,44 @@ static char* cpu_coretemp_files[] =
 
 /* Static values */
 static onlp_thermal_info_t linfo[] = {
-	{ }, /* Not used */
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_CPU_CORE), "CPU Core", 0},
+    { }, /* Not used */
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_CPU_CORE), "CPU Core", 0},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 82000, 104000, 104000 }
-        },	
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_1_ON_MAIN_BROAD), "MAC Around(0x4C)", 0},
+        },  
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_1_ON_MAIN_BOARD), "MAC Around(0x4C)", 0},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 68000, 70000, 70000 }
         },
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_2_ON_MAIN_BROAD), "COMe bottom(0x4B)", 0},
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_2_ON_MAIN_BOARD), "COMe bottom(0x4B)", 0},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 68000, 70000, 70000 }
         },
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_3_ON_MAIN_BROAD), "Air Outlet(0x4A)", 0},
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_3_ON_MAIN_BOARD), "Air Outlet(0x4A)", 0},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 68000, 70000, 70000 }
         },
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_1_ON_PSU1), "PSU-1 Thermal Sensor 1", ONLP_PSU_ID_CREATE(PSU1_ID)},
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_1_ON_PSU1), "PSU-1 Thermal Sensor 1", ONLP_PSU_ID_CREATE(PSU1_ID)},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 60000, 70000, 70000 }
         },
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_2_ON_PSU1), "PSU-1 Thermal Sensor 2", ONLP_PSU_ID_CREATE(PSU1_ID)},
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_2_ON_PSU1), "PSU-1 Thermal Sensor 2", ONLP_PSU_ID_CREATE(PSU1_ID)},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 100000, 120000, 120000 }
         },
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_1_ON_PSU2), "PSU-2 Thermal Sensor 1", ONLP_PSU_ID_CREATE(PSU2_ID)},
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_3_ON_PSU1), "PSU-1 Thermal Sensor 3", ONLP_PSU_ID_CREATE(PSU1_ID)},
+            ONLP_THERMAL_STATUS_PRESENT,
+            ONLP_THERMAL_CAPS_ALL, 0, { 100000, 120000, 120000 }
+        },
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_1_ON_PSU2), "PSU-2 Thermal Sensor 1", ONLP_PSU_ID_CREATE(PSU2_ID)},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 60000, 70000, 70000 }
         },
-	{ { ONLP_THERMAL_ID_CREATE(THERMAL_2_ON_PSU2), "PSU-2 Thermal Sensor 2", ONLP_PSU_ID_CREATE(PSU2_ID)},
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_2_ON_PSU2), "PSU-2 Thermal Sensor 2", ONLP_PSU_ID_CREATE(PSU2_ID)},
+            ONLP_THERMAL_STATUS_PRESENT,
+            ONLP_THERMAL_CAPS_ALL, 0, { 100000, 120000, 120000 }
+        },
+    { { ONLP_THERMAL_ID_CREATE(THERMAL_3_ON_PSU2), "PSU-2 Thermal Sensor 3", ONLP_PSU_ID_CREATE(PSU2_ID)},
             ONLP_THERMAL_STATUS_PRESENT,
             ONLP_THERMAL_CAPS_ALL, 0, { 100000, 120000, 120000 }
         }
@@ -134,46 +164,73 @@ int
 onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
 {
     int   tid;
-	char *format   = NULL;
-	char  path[64] = {0};
+    int   pid;
+    int   index = 0;  /* thermal index in psu */
+    char  path[64] = {0};
+    char  base_path[64] = {0};
+
     VALIDATE(id);
-	
+
     tid = ONLP_OID_ID_GET(id);
-	
-    /* Set the onlp_oid_hdr_t and capabilities */		
+
+    /* Set the onlp_oid_hdr_t and capabilities */
     *info = linfo[tid];
+
+    initialize_bmc_status();
 
     if(tid == THERMAL_CPU_CORE) {
         return onlp_file_read_int_max(&info->mcelsius, cpu_coretemp_files);
     }
 
-	switch (tid) {
-    	case THERMAL_1_ON_MAIN_BROAD:
-    	case THERMAL_2_ON_MAIN_BROAD:
-    	case THERMAL_3_ON_MAIN_BROAD:
-			format = THERMAL_PATH_FORMAT;
-			break;
-    	case THERMAL_1_ON_PSU1:
-    	case THERMAL_1_ON_PSU2:
-			format = PSU_THERMAL_1_PATH_FORMAT;
-			break;
-    	case THERMAL_2_ON_PSU1:
-    	case THERMAL_2_ON_PSU2:
-			format = PSU_THERMAL_2_PATH_FORMAT;
-			break;
-		default:
-			return ONLP_STATUS_E_INVALID;
-	};
-	
-    /* get path */
-    sprintf(path, format, directory[tid], tid);
+
+    switch (tid) {
+        case THERMAL_1_ON_MAIN_BOARD:
+        case THERMAL_2_ON_MAIN_BOARD:
+        case THERMAL_3_ON_MAIN_BOARD:
+            /* get path for each thermal sensor on the main board */
+            if (BMC_IS_ENABLED()) {
+                /* 1 -> 0x4c 2 -> 0x4b 3 -> 0x4a */
+                subdir_path_get(THERMAL_BMC_BASE_PATH, "hwmon", strlen("hwmon"), base_path, sizeof(base_path));
+                sprintf(path, "%s/temp%s_input", base_path, directory_bmc[tid]);
+            } else {
+                sprintf(path, THERMAL_PATH_FORMAT, directory[tid]);
+            }
+            break;
+        case THERMAL_1_ON_PSU1:
+        case THERMAL_2_ON_PSU1:
+        case THERMAL_3_ON_PSU1:
+        case THERMAL_1_ON_PSU2:
+        case THERMAL_2_ON_PSU2:
+        case THERMAL_3_ON_PSU2:
+            pid = ONLP_OID_ID_GET(info->hdr.poid);
+
+            /* each psu has 3 thermal sensors, which are indexed 1-3 */
+            index = (tid - THERMAL_1_ON_PSU1) % 3 + 1;
+
+            /* get path for each sensor of the psu */
+            if (BMC_IS_ENABLED()) {
+                if (pid == PSU1_ID)
+                    subdir_path_get(PSU1_THERMAL_BMC_BASE_PATH, "hwmon", strlen("hwmon"), base_path, sizeof(base_path));
+                else if (pid == PSU2_ID)
+                    subdir_path_get(PSU2_THERMAL_BMC_BASE_PATH, "hwmon", strlen("hwmon"), base_path, sizeof(base_path));
+                else
+                    return ONLP_STATUS_E_INVALID;
+
+                sprintf(path, "%s/psu_temp%d_input", base_path, index);
+            } else {
+                sprintf(path, PSU_THERMAL_PATH_FORMAT, directory[tid], index);
+            }
+            break;
+        default:
+            return ONLP_STATUS_E_INVALID;
+    };
 
     if (onlp_file_read_int(&info->mcelsius, path) < 0) {
         AIM_LOG_ERROR("Unable to read status from file (%s)\r\n", path);
         return ONLP_STATUS_E_INTERNAL;
     }
 
-    return ONLP_STATUS_OK;								
+    return ONLP_STATUS_OK;
 }
 
 

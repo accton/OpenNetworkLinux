@@ -4,6 +4,7 @@
 #include <onlp/platformi/sfpi.h>
 #include "x86_64_accton_as7327_56x_log.h"
 
+int bmc_enable = -1;
 
 int onlp_file_write_integer(char *filename, int value)
 {
@@ -59,6 +60,104 @@ int onlp_file_read_string(char *filename, char *buffer, int buf_size, int data_l
     return ret;
 }
 
+int initialize_bmc_status(void)
+{
+    int   rv = 0;
+    int   len;
+    uint8_t  data;
+
+    if (bmc_enable >= 0) {
+        return ONLP_STATUS_OK;
+    }
+
+    rv = onlp_file_read(&data, sizeof(data), &len, BMC_ENABLE_NODE);
+    if (rv == ONLP_STATUS_OK) {
+        if (data == '1')
+            bmc_enable = 1;
+        else
+            bmc_enable = 0;
+    } else {
+        AIM_LOG_ERROR("Unable to get bmc enable (%s)\r\n", BMC_ENABLE_NODE);
+        bmc_enable = 0;
+    }
+    return ONLP_STATUS_OK;
+
+}
+
+/* Get the fullpath of the subdirectory from root */
+int subdir_path_get(char *root, char *prefix, int prefix_len, char *path, int path_len)
+{
+    int  rv = 0;
+    char tmp[30];
+    char *sysfs_node[] = {tmp};
+
+    rv = onlp_dir_read(root, prefix, prefix_len, sysfs_node, 1);
+
+    if (rv != ONLP_STATUS_OK)
+        return ONLP_STATUS_E_GENERIC;
+
+    if (path_len > (strlen(root) + strlen(tmp) + 2))
+        sprintf(path, "%s/%s", root, tmp);
+    else
+        return ONLP_STATUS_E_GENERIC;
+
+    return ONLP_STATUS_OK;
+
+}
+
+int psu_bmc_str_get(path_t *bmc_path, char *field, char *data, int size)
+{
+    int  len;
+    int  rv = 0;
+    char path[256] = {0};
+
+    if (!strlen(bmc_path->target_path) ||
+        strncmp(bmc_path->target_path, bmc_path->base_path, strlen(bmc_path->base_path))) {
+
+        rv = subdir_path_get(bmc_path->base_path, "hwmon", strlen("hwmon"), bmc_path->target_path, sizeof(bmc_path->target_path));
+        if (rv != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to get the subdirectory (%s)\r\n", bmc_path->base_path);
+            return ONLP_STATUS_E_INTERNAL;
+        }
+    }
+
+    sprintf(path, "%s/%s", bmc_path->target_path, field);
+
+    rv = onlp_file_read((uint8_t*)data, size, &len, "%s", path);
+    if ((rv != ONLP_STATUS_OK) && len) {
+        AIM_LOG_ERROR("Unable to read string from file (%s)\r\n", path);
+        return ONLP_STATUS_E_INTERNAL;
+    }
+    return rv;
+}
+
+/* 
+ * Search the directory under hwmon and get data from the node
+ */
+int psu_bmc_info_get(path_t *bmc_path, char *field, int *val)
+{
+    int  rv = 0;
+    char path[256] = {0};
+
+    if (!strlen(bmc_path->target_path) ||
+        strncmp(bmc_path->target_path, bmc_path->base_path, strlen(bmc_path->base_path))) {
+
+        rv = subdir_path_get(bmc_path->base_path, "hwmon", strlen("hwmon"), bmc_path->target_path, sizeof(bmc_path->target_path));
+        if (rv != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to get the subdirectory (%s)\r\n", bmc_path->base_path);
+            return ONLP_STATUS_E_INTERNAL;
+        }
+    }
+
+    sprintf(path, "%s/%s", bmc_path->target_path, field);
+
+    if (onlp_file_read_int(val, path) < 0) {
+        AIM_LOG_ERROR("Unable to read status from file (%s)\r\n", path);
+        return ONLP_STATUS_E_INTERNAL;
+    }
+    return ONLP_STATUS_OK;
+}
+
 int psu_pmbus_info_get(int id, char *node, int *value)
 {
     int  ret = 0;
@@ -104,7 +203,6 @@ int psu_pmbus_info_set(int id, char *node, int value)
     return ONLP_STATUS_OK;
 }
 
-#define PSU_MODEL_NAME_LEN	11
 
 int psu_pmbus_model_name_get(int id, char *model, int model_len)
 {
@@ -128,7 +226,6 @@ int psu_pmbus_model_name_get(int id, char *model, int model_len)
 	return ONLP_STATUS_OK;
 }
 
-#define PSU_SERIAL_NUMBER_LEN	14
 
 int psu_pmbus_serial_number_get(int id, char *serial, int serial_len)
 {

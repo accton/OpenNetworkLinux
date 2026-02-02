@@ -25,13 +25,12 @@
  ***********************************************************/
 #include <onlp/platformi/psui.h>
 #include <onlplib/mmap.h>
-//#include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include "platform_lib.h"
 
 #define PSU_STATUS_PRESENT    1
 #define PSU_STATUS_POWER_GOOD 1
-
 
 
 #define VALIDATE(_id)                           \
@@ -48,23 +47,47 @@ onlp_psui_init(void)
 }
 
 static int
-psu_detail_info_get(onlp_psu_info_t* info)
+psu_bmc_detail_info_get(onlp_psu_info_t* info, path_t *bmc_path)
 {
-    int val   = 0;
-    int index = ONLP_OID_ID_GET(info->hdr.id);
-    int temp_index = 0;
-
-    if (info->status & ONLP_PSU_STATUS_FAILED) {
-        return ONLP_STATUS_OK;
+    int val;
+    /* Read voltage, current and power */
+    if (psu_bmc_info_get(bmc_path, "psu_vout", &val)) {
+        info->mvout = val;
+        info->caps |= ONLP_PSU_CAPS_VOUT;
     }
 
-    /* Set the associated oid_table */
-    info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
-    for(temp_index = 1; temp_index <= CHASSIS_PSU_THERMAL_COUNT; temp_index++)
-    {
-        info->hdr.coids[temp_index] = ONLP_THERMAL_ID_CREATE((index-1)*CHASSIS_PSU_THERMAL_COUNT + CHASSIS_THERMAL_COUNT + temp_index);
+    if (psu_bmc_info_get(bmc_path, "psu_vin", &val)) {
+        info->mvin = val;
+        info->caps |= ONLP_PSU_CAPS_VIN;
     }
 
+    if (psu_bmc_info_get(bmc_path, "psu_iout", &val)) {
+        info->miout = val;
+        info->caps |= ONLP_PSU_CAPS_IOUT;
+    }
+
+    if (psu_bmc_info_get(bmc_path, "psu_iin", &val)) {
+        info->miin = val;
+        info->caps |= ONLP_PSU_CAPS_IIN;
+    }
+
+    if (psu_bmc_info_get(bmc_path, "psu_pout", &val)) {
+        info->mpout = val;
+        info->caps |= ONLP_PSU_CAPS_POUT;
+    }
+
+    if (psu_bmc_info_get(bmc_path, "psu_pin", &val)) {
+        info->mpin = val;
+        info->caps |= ONLP_PSU_CAPS_PIN;
+    }
+
+    return ONLP_STATUS_OK;
+}
+
+static int
+psu_pmbus_detail_info_get(onlp_psu_info_t* info, int index)
+{
+    int val;
     /* Read voltage, current and power */
     if (psu_pmbus_info_get(index, "psu_v_out", &val) == 0) {
         info->mvout = val;
@@ -103,6 +126,32 @@ psu_detail_info_get(onlp_psu_info_t* info)
     return ONLP_STATUS_OK;
 }
 
+static int
+psu_detail_info_get(onlp_psu_info_t* info, path_t *bmc_path)
+{
+    int index = ONLP_OID_ID_GET(info->hdr.id);
+    int temp_index = 0;
+
+    if (info->status & ONLP_PSU_STATUS_FAILED) {
+        return ONLP_STATUS_OK;
+    }
+
+    /* Set the associated oid_table */
+    info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
+    for(temp_index = 1; temp_index <= CHASSIS_PSU_THERMAL_COUNT; temp_index++)
+    {
+        info->hdr.coids[temp_index] = ONLP_THERMAL_ID_CREATE((index-1)*CHASSIS_PSU_THERMAL_COUNT + CHASSIS_THERMAL_COUNT + temp_index);
+    }
+
+    if(BMC_IS_ENABLED()) {
+        psu_bmc_detail_info_get(info, bmc_path);
+    } else {
+        psu_pmbus_detail_info_get(info, index);
+    }
+
+    return ONLP_STATUS_OK;
+}
+
 /*
  * Get all information about the given PSU oid.
  */
@@ -117,6 +166,17 @@ static onlp_psu_info_t pinfo[] =
     }
 };
 
+static void
+onlp_psu_str_check(char *str, int buffer_size)
+{
+    str[buffer_size - 1] = '\0';
+
+    if(isspace(str[strlen(str) - 1])) {
+        str[strlen(str) - 1] = 0;
+    }
+}
+
+
 int
 onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 {
@@ -124,54 +184,128 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
     int ret   = ONLP_STATUS_OK;
     int index = ONLP_OID_ID_GET(id);
     int psu_type;
+    path_t bmc_path = {NULL, {0}};
 
     VALIDATE(id);
 
     memset(info, 0, sizeof(onlp_psu_info_t));
     *info = pinfo[index]; /* Set the onlp_oid_hdr_t */
 
-    /* Get the present state */
-    if (psu_pmbus_info_get(index, "psu_present", &val) != 0) {
-        printf("Unable to read PSU(%d) node(psu_present)\r\n", index);
+    initialize_bmc_status();
+
+    if(BMC_IS_ENABLED()) {
+        if (index == 1) 
+            bmc_path.base_path = PSU1_BMC_BASE_PATH;
+        else if (index == 2)
+            bmc_path.base_path = PSU2_BMC_BASE_PATH;
+        else
+            return ONLP_STATUS_E_INVALID;
+
+        if (psu_bmc_info_get(&bmc_path, "psu_present", &val) != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_present)\r\n", index);
+            return ONLP_STATUS_E_INTERNAL;
+        }
+
+        /* Get the present state */
+        if (val != PSU_STATUS_PRESENT) {
+            info->status &= ~ONLP_PSU_STATUS_PRESENT;
+            return ONLP_STATUS_OK;
+        }
+        info->status |= ONLP_PSU_STATUS_PRESENT;
+
+        /* Get model name */
+        psu_bmc_str_get(&bmc_path, "psu_model_name", info->model, sizeof(info->model));
+
+        onlp_psu_str_check(info->model, ONLP_CONFIG_INFO_STR_MAX);
+
+        /* Get serial number */
+        psu_bmc_str_get(&bmc_path, "psu_serial_number", info->serial, sizeof(info->serial));
+
+        onlp_psu_str_check(info->serial, ONLP_CONFIG_INFO_STR_MAX);
+
+        /* Get power good status */
+        if (psu_bmc_info_get(&bmc_path, "psu_power_good", &val) != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
+        }
+
+        if (val != PSU_STATUS_POWER_GOOD) {
+            info->status |=  ONLP_PSU_STATUS_FAILED;
+        }
+
+        /* get psu type
+         */
+        if (psu_bmc_info_get(&bmc_path, "psu_vin_type", &psu_type) != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("unable to read PSU(%d) node(psu_mfr_vin_type)\r\n", index);
+        }
+        switch (psu_type) {
+            case PSU_TYPE_DC:
+                info->caps = ONLP_PSU_CAPS_DC48;
+            case PSU_TYPE_AC:
+                info->caps = ONLP_PSU_CAPS_AC;
+                break;
+            case PSU_TYPE_UNKNOWN:  /* user insert a unknown psu or unplugged.*/
+                info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+                info->status &= ~ONLP_PSU_STATUS_FAILED;
+                ret = ONLP_STATUS_OK;
+                break;
+            default:
+                ret = ONLP_STATUS_E_UNSUPPORTED;
+                break;
+        }
+    } else {
+        /* Get the present state */
+        if (psu_pmbus_info_get(index, "psu_present", &val) != 0) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_present)\r\n", index);
+        }
+
+        if (val != PSU_STATUS_PRESENT) {
+            info->status &= ~ONLP_PSU_STATUS_PRESENT;
+            return ONLP_STATUS_OK;
+        }
+        info->status |= ONLP_PSU_STATUS_PRESENT;
+
+        /* Get model name */
+        psu_pmbus_model_name_get(index, info->model, sizeof(info->model));
+
+        onlp_psu_str_check(info->model, ONLP_CONFIG_INFO_STR_MAX);
+
+        /* Get serial number */
+        psu_pmbus_serial_number_get(index, info->serial, sizeof(info->serial));
+
+        onlp_psu_str_check(info->serial, ONLP_CONFIG_INFO_STR_MAX);
+
+        /* Get power good status */
+        if (psu_pmbus_info_get(index, "psu_power_good", &val) != 0) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
+        }
+
+        if (val != PSU_STATUS_POWER_GOOD) {
+            info->status |=  ONLP_PSU_STATUS_FAILED;
+        }
+
+        /* get psu type
+         */
+        if (psu_pmbus_info_get(index, "psu_mfr_vin_type", &psu_type) != 0) {
+            AIM_LOG_ERROR("unable to read psu(%d) node(psu_mfr_vin_type)\r\n", index);
+        }
+        switch (psu_type) {
+            case PSU_TYPE_DC:
+                info->caps = ONLP_PSU_CAPS_DC48;
+            case PSU_TYPE_AC:
+                info->caps = ONLP_PSU_CAPS_AC;
+                break;
+            case PSU_TYPE_UNKNOWN:  /* user insert a unknown psu or unplugged.*/
+                info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+                info->status &= ~ONLP_PSU_STATUS_FAILED;
+                ret = ONLP_STATUS_OK;
+                break;
+            default:
+                ret = ONLP_STATUS_E_UNSUPPORTED;
+                break;
+        }
     }
 
-    if (val != PSU_STATUS_PRESENT) {
-        info->status &= ~ONLP_PSU_STATUS_PRESENT;
-        return ONLP_STATUS_OK;
-    }
-    info->status |= ONLP_PSU_STATUS_PRESENT;
-
-    /* Get power good status */
-    if (psu_pmbus_info_get(index, "psu_power_good", &val) != 0) {
-        printf("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
-    }
-
-    if (val != PSU_STATUS_POWER_GOOD) {
-        info->status |=  ONLP_PSU_STATUS_FAILED;
-    }
-
-    /* Get PSU type
-     */
-    if (psu_pmbus_info_get(index, "psu_mfr_vin_type", &psu_type) != 0) {
-        printf("Unable to read PSU(%d) node(psu_mfr_vin_type)\r\n", index);
-    }
-    switch (psu_type) {
-        case PSU_TYPE_DC:
-            info->caps = ONLP_PSU_CAPS_DC48;
-        case PSU_TYPE_AC:
-            info->caps = ONLP_PSU_CAPS_AC;
-            break;
-        case PSU_TYPE_UNKNOWN:  /* User insert a unknown PSU or unplugged.*/
-            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
-            info->status &= ~ONLP_PSU_STATUS_FAILED;
-            ret = ONLP_STATUS_OK;
-            break;
-        default:
-            ret = ONLP_STATUS_E_UNSUPPORTED;
-            break;
-    }
-
-    ret = psu_detail_info_get(info);
+    ret = psu_detail_info_get(info, &bmc_path);
 
     return ret;
 }

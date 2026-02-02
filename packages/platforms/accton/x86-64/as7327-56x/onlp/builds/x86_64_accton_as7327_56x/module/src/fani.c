@@ -100,27 +100,51 @@ static int
 _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
 {
     int val = 0;
+    path_t bmc_path = {NULL, {0}};
 
     info->status |= ONLP_FAN_STATUS_PRESENT;
 
-    /* get fan direction */
-    if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
-        info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
-    }
+    if (BMC_IS_ENABLED()) {
+        if (pid == PSU1_ID) 
+            bmc_path.base_path = PSU1_BMC_BASE_PATH;
+        else if (pid == PSU2_ID)
+            bmc_path.base_path = PSU2_BMC_BASE_PATH;
+        else
+            return ONLP_STATUS_E_INVALID;
 
-    /* get fan fault status
-     */
-    if (psu_pmbus_info_get(pid, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
-        info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
-    }
+        /* get fan direction */
+        if (psu_bmc_info_get(&bmc_path, "psu_fan1_dir", &val) == ONLP_STATUS_OK) {
+            if ((val == ONLP_FAN_STATUS_B2F) || (val == ONLP_FAN_STATUS_F2B))
+                info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+        }
 
-    /* get fan speed
-     */
-    if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
-        info->rpm = val;
-        info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
-    }
+        /* get fan fault status */
+        if (psu_bmc_info_get(&bmc_path, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
+            info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+        }
 
+        /* get fan speed */
+        if (psu_bmc_info_get(&bmc_path, "psu_fan1_speed", &val) == ONLP_STATUS_OK) {
+            info->rpm = val;
+            info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+        }
+    } else {
+        /* get fan direction */
+        if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
+            info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+        }
+
+        /* get fan fault status */
+        if (psu_pmbus_info_get(pid, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
+            info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+        }
+
+        /* get fan speed */
+        if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
+            info->rpm = val;
+            info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+        }
+    }
     return ONLP_STATUS_OK;
 }
 
