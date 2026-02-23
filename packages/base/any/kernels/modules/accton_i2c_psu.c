@@ -334,9 +334,14 @@ static const struct hwmon_chip_info accton_i2c_psu_chip_info = {
 };
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+static int accton_i2c_psu_probe(struct i2c_client *client)
+{
+#else
 static int accton_i2c_psu_probe(struct i2c_client *client,
             const struct i2c_device_id *dev_id)
 {
+#endif
     struct accton_i2c_psu_data *data;
     int status;
 

@@ -215,8 +215,12 @@ static const struct attribute_group cpr_4011_4mxx_group = {
     .attrs = cpr_4011_4mxx_attributes,
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+static int cpr_4011_4mxx_probe(struct i2c_client *client)
+#else
 static int cpr_4011_4mxx_probe(struct i2c_client *client,
             const struct i2c_device_id *dev_id)
+#endif
 {
     struct cpr_4011_4mxx_data *data;
     int status;

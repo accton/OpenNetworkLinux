@@ -194,6 +194,8 @@ mbuild: build
 	find $(K_MBUILD_DIR) -name "*.o*" -delete
 	find $(K_MBUILD_DIR) -name "*.c" -delete
 	find $(K_MBUILD_DIR) -name "*.ko" -delete
+	# Fix for Linux 6.12+: Restore module-common.c needed for module linking
+	cp $(K_SOURCE_DIR)/scripts/module-common.c $(K_MBUILD_DIR)/scripts/ 2>/dev/null || true
 ifeq ($(ARCH), powerpc)
 	$(foreach f,$(MODSYNCKEEP), cp $(K_SOURCE_DIR)/$(f) $(K_MBUILD_DIR)/$(f) || true;)
 endif

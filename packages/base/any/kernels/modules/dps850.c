@@ -224,9 +224,15 @@ static const struct attribute_group dps850_group = {
 	.attrs = dps850_attributes,
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+static int dps850_probe(struct i2c_client *client)
+{
+	const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
+#else
 static int dps850_probe(struct i2c_client *client,
 			const struct i2c_device_id *dev_id)
 {
+#endif
 	struct dps850_data *data;
 	int status;
 

@@ -565,9 +565,15 @@ static const struct hwmon_chip_info ym2651y_chip_info = {
 };
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+static int ym2651y_probe(struct i2c_client *client)
+{
+    const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
+#else
 static int ym2651y_probe(struct i2c_client *client,
             const struct i2c_device_id *dev_id)
 {
+#endif
     struct ym2651y_data *data;
     int status;
 
