@@ -799,7 +799,7 @@ static ssize_t set_qsfp(struct device *dev, struct device_attribute *da,
 	switch (attr->index) {
 	case MODULE_RESET_49 ... MODULE_RESET_56:
 		reg  = 0x20;
-		mask = 0x1 << ((attr->index - MODULE_LPMODE_49)%8);
+		mask = 0x1 << ((attr->index - MODULE_RESET_49)%8);
         revert = 1;
 		break;
 	case MODULE_LPMODE_49 ... MODULE_LPMODE_56:
