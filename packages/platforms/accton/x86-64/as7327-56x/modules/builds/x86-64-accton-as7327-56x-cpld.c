@@ -1291,22 +1291,24 @@ static ssize_t set_sysled_wdt_clear(struct device *dev, struct device_attribute 
 
 static ssize_t show_bmc_enable(struct device *dev, struct device_attribute *da, char *buf)
 {
-    int val;
+    int status;
     int bmc_enable = -1;
     int bmc_present = -1;
     int bmc_heart = -1;
     struct i2c_client *client = to_i2c_client(dev);
 
-    val = as7327_56x_cpld_read_internal(client, 0x82);
-    if(val < 0)
-        return -1;
-    bmc_enable = (val >> BMC_ENABLE_OFFSET) & BMC_ENABLE_MASK;
+    status = as7327_56x_cpld_read_internal(client, 0x82);
+    if(unlikely(status < 0))
+        return status;
 
-    val = as7327_56x_cpld_read_internal(client, 0x80);
-    if(val < 0)
-        return -1;
-    bmc_present = (val >> BMC_PRESENT_OFFSET) & BMC_PRESENT_MASK;
-    bmc_heart =  (val >> BMC_HEART_OFFSET) & BMC_HEART_MASK;
+    bmc_enable = (status >> BMC_ENABLE_OFFSET) & BMC_ENABLE_MASK;
+
+    status = as7327_56x_cpld_read_internal(client, 0x80);
+    if(unlikely(status < 0))
+        return status;
+
+    bmc_present = (status >> BMC_PRESENT_OFFSET) & BMC_PRESENT_MASK;
+    bmc_heart =  (status >> BMC_HEART_OFFSET) & BMC_HEART_MASK;
 
     if((bmc_enable == BMC_EN_ENABLE) && (bmc_present == BMC_PRESENT) && (bmc_heart == BMC_HEART_FRQ_2HZ))
     {
