@@ -452,9 +452,15 @@ onlp_file_find(char* root, char* fname, char** rpath)
 int
 onlp_dir_read(char* root, char* prefix, int prefix_len, char** name, int size)
 {
-    DIR *dir = opendir(root);
-    if (!dir) {
-        perror("opendir");
+    DIR *dir;
+    if (strlen(root)) {
+        dir = opendir(root);
+        if (!dir) {
+            AIM_LOG_ERROR("onlp_dir_read failed: cannot open %s", root);
+            return ONLP_STATUS_E_GENERIC;
+        }
+    } else {
+        AIM_LOG_ERROR("onlp_dir_read failed: root cannot be empty");
         return ONLP_STATUS_E_GENERIC;
     }
 

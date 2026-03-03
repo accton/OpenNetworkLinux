@@ -171,11 +171,10 @@ onlp_psu_str_check(char *str, int buffer_size)
 {
     str[buffer_size - 1] = '\0';
 
-    if(isspace(str[strlen(str) - 1])) {
+    if(strlen(str) && isspace(str[strlen(str) - 1])) {
         str[strlen(str) - 1] = 0;
     }
 }
-
 
 int
 onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)

@@ -88,7 +88,7 @@ int initialize_bmc_status(void)
 int subdir_path_get(char *root, char *prefix, int prefix_len, char *path, int path_len)
 {
     int  rv = 0;
-    char tmp[30];
+    char tmp[100];
     char *sysfs_node[] = {tmp};
 
     rv = onlp_dir_read(root, prefix, prefix_len, sysfs_node, 1);

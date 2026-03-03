@@ -68,7 +68,7 @@ enum fan_id {
     { \
         { ONLP_FAN_ID_CREATE(FAN_##fid##_ON_PSU_##pid), "PSU "#pid" - Fan "#fid, 0 },\
         0x0,\
-        ONLP_FAN_CAPS_SET_PERCENTAGE | ONLP_FAN_CAPS_GET_RPM | ONLP_FAN_CAPS_GET_PERCENTAGE,\
+        ONLP_FAN_CAPS_GET_RPM | ONLP_FAN_CAPS_GET_PERCENTAGE,\
         0,\
         0,\
         ONLP_FAN_MODE_INVALID,\
@@ -114,8 +114,10 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
 
         /* get fan direction */
         if (psu_bmc_info_get(&bmc_path, "psu_fan1_dir", &val) == ONLP_STATUS_OK) {
-            if ((val == ONLP_FAN_STATUS_B2F) || (val == ONLP_FAN_STATUS_F2B))
-                info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+            if (val == 0)
+                info->status |= ONLP_FAN_STATUS_F2B;
+            else if (val == 1)
+                info->status |= ONLP_FAN_STATUS_B2F;
         }
 
         /* get fan fault status */
@@ -302,6 +304,8 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
      fid = ONLP_OID_ID_GET(id);
      *info = finfo[fid];
  
+    initialize_bmc_status();
+
      info->status = 0;
 
      switch (fid)
@@ -320,6 +324,9 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
         case FAN_BOX2_FRONT_4:
         case FAN_BOX2_REAR_3:
         case FAN_BOX2_REAR_4:
+            if (BMC_IS_ENABLED()) {
+                info->caps &= ~ONLP_FAN_CAPS_SET_PERCENTAGE;
+            }
             rc =_onlp_fani_info_get_fan(fid, info);						
             break;
         default:

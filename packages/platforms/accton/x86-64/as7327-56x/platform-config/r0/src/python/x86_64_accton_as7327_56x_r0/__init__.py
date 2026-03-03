@@ -38,7 +38,12 @@ class OnlPlatform_x86_64_accton_as7327_56x_r0(OnlPlatformAccton,
             ('as7327_56x_cpld2', 0x64, 158),
         ])
 
-        time.sleep(1)
+        for i in range(5):
+            time.sleep(1)
+            if os.path.exists(BMC_ENABLE_NODE):
+                break
+        else:
+            print("cannot access %s" % BMC_ENABLE_NODE)
 
         try:
             # Access CPLD bmc enable
