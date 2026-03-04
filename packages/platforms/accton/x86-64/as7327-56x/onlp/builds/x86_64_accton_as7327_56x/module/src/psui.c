@@ -139,7 +139,7 @@ psu_detail_info_get(onlp_psu_info_t* info)
     int index = ONLP_OID_ID_GET(info->hdr.id);
     int temp_index = 0;
 
-    if (info->status & ONLP_PSU_STATUS_FAILED) {
+    if (info->status & ONLP_PSU_STATUS_UNPLUGGED) {
         return ONLP_STATUS_OK;
     }
 
@@ -235,7 +235,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         }
 
         if (val != PSU_STATUS_POWER_GOOD) {
-            info->status |=  ONLP_PSU_STATUS_FAILED;
+            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
         }
 
         /* get psu type
@@ -286,7 +286,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         }
 
         if (val != PSU_STATUS_POWER_GOOD) {
-            info->status |=  ONLP_PSU_STATUS_FAILED;
+            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
         }
 
         /* get psu type
