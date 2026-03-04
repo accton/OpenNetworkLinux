@@ -29,11 +29,11 @@
 #include "platform_lib.h"
 
 #define THERMAL_PATH_FORMAT         "/sys/bus/i2c/devices/%s/*temp1_input"
-#define THERMAL_BMC_BASE_PATH       "/sys/bus/platform/devices/as7327_56x_thermal_bmc/hwmon"
+#define THERMAL_BMC_BASE_PATH       "/sys/bus/platform/devices/as7327_56x_thermal_bmc/hwmon/*temp%s_input"
 
 #define PSU_THERMAL_PATH_FORMAT     "/sys/bus/i2c/devices/%s/*psu_temp%d_input"
-#define PSU1_THERMAL_BMC_BASE_PATH  "/sys/bus/platform/devices/as7327_56x_psu_bmc.0/hwmon"
-#define PSU2_THERMAL_BMC_BASE_PATH  "/sys/bus/platform/devices/as7327_56x_psu_bmc.1/hwmon"
+#define PSU1_THERMAL_BMC_BASE_PATH  "/sys/bus/platform/devices/as7327_56x_psu_bmc.0/hwmon/*psu_temp%d_input"
+#define PSU2_THERMAL_BMC_BASE_PATH  "/sys/bus/platform/devices/as7327_56x_psu_bmc.1/hwmon/*psu_temp%d_input"
 
 #define VALIDATE(_id)                           \
     do {                                        \
@@ -167,7 +167,6 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
     int   pid;
     int   index = 0;  /* thermal index in psu */
     char  path[64] = {0};
-    char  base_path[64] = {0};
 
     VALIDATE(id);
 
@@ -190,8 +189,7 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
             /* get path for each thermal sensor on the main board */
             if (BMC_IS_ENABLED()) {
                 /* 1 -> 0x4c 2 -> 0x4b 3 -> 0x4a */
-                subdir_path_get(THERMAL_BMC_BASE_PATH, "hwmon", strlen("hwmon"), base_path, sizeof(base_path));
-                sprintf(path, "%s/temp%s_input", base_path, directory_bmc[tid]);
+                sprintf(path, THERMAL_BMC_BASE_PATH, directory_bmc[tid]);
             } else {
                 sprintf(path, THERMAL_PATH_FORMAT, directory[tid]);
             }
@@ -210,13 +208,11 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
             /* get path for each sensor of the psu */
             if (BMC_IS_ENABLED()) {
                 if (pid == PSU1_ID)
-                    subdir_path_get(PSU1_THERMAL_BMC_BASE_PATH, "hwmon", strlen("hwmon"), base_path, sizeof(base_path));
+                    sprintf(path, PSU1_THERMAL_BMC_BASE_PATH, index);
                 else if (pid == PSU2_ID)
-                    subdir_path_get(PSU2_THERMAL_BMC_BASE_PATH, "hwmon", strlen("hwmon"), base_path, sizeof(base_path));
+                    sprintf(path, PSU2_THERMAL_BMC_BASE_PATH, index);
                 else
                     return ONLP_STATUS_E_INVALID;
-
-                sprintf(path, "%s/psu_temp%d_input", base_path, index);
             } else {
                 sprintf(path, PSU_THERMAL_PATH_FORMAT, directory[tid], index);
             }

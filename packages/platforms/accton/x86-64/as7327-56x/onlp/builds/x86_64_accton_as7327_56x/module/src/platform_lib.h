@@ -44,8 +44,8 @@
 #define PSU1_AC_PMBUS_PREFIX "/sys/bus/i2c/devices/1-005a/"
 #define PSU2_AC_PMBUS_PREFIX "/sys/bus/i2c/devices/2-0059/"
 
-#define PSU1_BMC_BASE_PATH   "/sys/bus/platform/devices/as7327_56x_psu_bmc.0/hwmon"
-#define PSU2_BMC_BASE_PATH   "/sys/bus/platform/devices/as7327_56x_psu_bmc.1/hwmon"
+#define PSU1_BMC_BASE_PATH   "/sys/bus/platform/devices/as7327_56x_psu_bmc.0/hwmon/*%s"
+#define PSU2_BMC_BASE_PATH   "/sys/bus/platform/devices/as7327_56x_psu_bmc.1/hwmon/*%s"
 
 #define PSU1_AC_PMBUS_NODE(node) PSU1_AC_PMBUS_PREFIX#node
 #define PSU2_AC_PMBUS_NODE(node) PSU2_AC_PMBUS_PREFIX#node
@@ -63,11 +63,6 @@
 #define PSU_MODEL_NAME_LEN      11
 #define PSU_SERIAL_NUMBER_LEN   14
 
-typedef struct path_s {
-    char *base_path;       /* The base path to search hwmon */
-    char target_path[256]; /* The result of gotten path     */
-} path_t ;
-
 int onlp_file_write_integer(char *filename, int value);
 int onlp_file_read_binary(char *filename, char *buffer, int buf_size, int data_len);
 int onlp_file_read_string(char *filename, char *buffer, int buf_size, int data_len);
@@ -83,16 +78,9 @@ typedef enum psu_type {
 } psu_type_t;
 
 int initialize_bmc_status(void);
-int subdir_path_get(char *root, char *prefix, int prefix_len, char *path, int path_len);
 
-int psu_bmc_str_get(path_t *bmc_path, char *field, char *data, int size);
-/**
- * @brief Get int data under hwmon
- * @param bcm_path the path to get data
- * @param field the node to get data
- * @param val return the goten data
- */
-int psu_bmc_info_get(path_t *bmc_path, char *field, int *val);
+int psu_bmc_str_get(char *basepath, char *field, char *data, int size);
+int psu_bmc_info_get(char *basepath, char *field, int *val);
 
 psu_type_t get_psu_type(int id, char* modelname, int modelname_len);
 int psu_pmbus_model_name_get(int id, char *model, int model_len);

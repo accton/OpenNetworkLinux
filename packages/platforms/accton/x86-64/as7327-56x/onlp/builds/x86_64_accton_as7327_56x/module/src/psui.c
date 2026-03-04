@@ -47,36 +47,43 @@ onlp_psui_init(void)
 }
 
 static int
-psu_bmc_detail_info_get(onlp_psu_info_t* info, path_t *bmc_path)
+psu_bmc_detail_info_get(onlp_psu_info_t* info, int index)
 {
     int val;
+    char *basepath = NULL;
+
+    if (index == PSU1_ID)
+        basepath = PSU1_BMC_BASE_PATH;
+    else if (index == PSU2_ID)
+        basepath = PSU2_BMC_BASE_PATH;
+
     /* Read voltage, current and power */
-    if (psu_bmc_info_get(bmc_path, "psu_vout", &val)) {
+    if (psu_bmc_info_get(basepath, "psu_vout", &val) == ONLP_STATUS_OK) {
         info->mvout = val;
         info->caps |= ONLP_PSU_CAPS_VOUT;
     }
 
-    if (psu_bmc_info_get(bmc_path, "psu_vin", &val)) {
+    if (psu_bmc_info_get(basepath, "psu_vin", &val) == ONLP_STATUS_OK) {
         info->mvin = val;
         info->caps |= ONLP_PSU_CAPS_VIN;
     }
 
-    if (psu_bmc_info_get(bmc_path, "psu_iout", &val)) {
+    if (psu_bmc_info_get(basepath, "psu_iout", &val) == ONLP_STATUS_OK) {
         info->miout = val;
         info->caps |= ONLP_PSU_CAPS_IOUT;
     }
 
-    if (psu_bmc_info_get(bmc_path, "psu_iin", &val)) {
+    if (psu_bmc_info_get(basepath, "psu_iin", &val) == ONLP_STATUS_OK) {
         info->miin = val;
         info->caps |= ONLP_PSU_CAPS_IIN;
     }
 
-    if (psu_bmc_info_get(bmc_path, "psu_pout", &val)) {
+    if (psu_bmc_info_get(basepath, "psu_pout", &val) == ONLP_STATUS_OK) {
         info->mpout = val;
         info->caps |= ONLP_PSU_CAPS_POUT;
     }
 
-    if (psu_bmc_info_get(bmc_path, "psu_pin", &val)) {
+    if (psu_bmc_info_get(basepath, "psu_pin", &val) == ONLP_STATUS_OK) {
         info->mpin = val;
         info->caps |= ONLP_PSU_CAPS_PIN;
     }
@@ -127,7 +134,7 @@ psu_pmbus_detail_info_get(onlp_psu_info_t* info, int index)
 }
 
 static int
-psu_detail_info_get(onlp_psu_info_t* info, path_t *bmc_path)
+psu_detail_info_get(onlp_psu_info_t* info)
 {
     int index = ONLP_OID_ID_GET(info->hdr.id);
     int temp_index = 0;
@@ -144,7 +151,7 @@ psu_detail_info_get(onlp_psu_info_t* info, path_t *bmc_path)
     }
 
     if(BMC_IS_ENABLED()) {
-        psu_bmc_detail_info_get(info, bmc_path);
+        psu_bmc_detail_info_get(info, index);
     } else {
         psu_pmbus_detail_info_get(info, index);
     }
@@ -183,7 +190,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
     int ret   = ONLP_STATUS_OK;
     int index = ONLP_OID_ID_GET(id);
     int psu_type;
-    path_t bmc_path = {NULL, {0}};
+    char *basepath;
 
     VALIDATE(id);
 
@@ -193,14 +200,14 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
     initialize_bmc_status();
 
     if(BMC_IS_ENABLED()) {
-        if (index == 1) 
-            bmc_path.base_path = PSU1_BMC_BASE_PATH;
-        else if (index == 2)
-            bmc_path.base_path = PSU2_BMC_BASE_PATH;
+        if (index == PSU1_ID) 
+            basepath = PSU1_BMC_BASE_PATH;
+        else if (index == PSU2_ID)
+            basepath = PSU2_BMC_BASE_PATH;
         else
             return ONLP_STATUS_E_INVALID;
 
-        if (psu_bmc_info_get(&bmc_path, "psu_present", &val) != ONLP_STATUS_OK) {
+        if (psu_bmc_info_get(basepath, "psu_present", &val) != ONLP_STATUS_OK) {
             AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_present)\r\n", index);
             return ONLP_STATUS_E_INTERNAL;
         }
@@ -213,17 +220,17 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         info->status |= ONLP_PSU_STATUS_PRESENT;
 
         /* Get model name */
-        psu_bmc_str_get(&bmc_path, "psu_model_name", info->model, sizeof(info->model));
+        psu_bmc_str_get(basepath, "psu_model_name", info->model, sizeof(info->model));
 
         onlp_psu_str_check(info->model, ONLP_CONFIG_INFO_STR_MAX);
 
         /* Get serial number */
-        psu_bmc_str_get(&bmc_path, "psu_serial_number", info->serial, sizeof(info->serial));
+        psu_bmc_str_get(basepath, "psu_serial_number", info->serial, sizeof(info->serial));
 
         onlp_psu_str_check(info->serial, ONLP_CONFIG_INFO_STR_MAX);
 
         /* Get power good status */
-        if (psu_bmc_info_get(&bmc_path, "psu_power_good", &val) != ONLP_STATUS_OK) {
+        if (psu_bmc_info_get(basepath, "psu_power_good", &val) != ONLP_STATUS_OK) {
             AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
         }
 
@@ -233,7 +240,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 
         /* get psu type
          */
-        if (psu_bmc_info_get(&bmc_path, "psu_vin_type", &psu_type) != ONLP_STATUS_OK) {
+        if (psu_bmc_info_get(basepath, "psu_vin_type", &psu_type) != ONLP_STATUS_OK) {
             AIM_LOG_ERROR("unable to read PSU(%d) node(psu_mfr_vin_type)\r\n", index);
         }
         switch (psu_type) {
@@ -304,7 +311,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         }
     }
 
-    ret = psu_detail_info_get(info, &bmc_path);
+    ret = psu_detail_info_get(info);
 
     return ret;
 }

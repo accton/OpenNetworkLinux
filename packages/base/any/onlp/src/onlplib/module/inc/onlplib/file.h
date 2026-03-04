@@ -197,8 +197,4 @@ int onlp_file_vopen(int flags, int log, const char* fmt, va_list vargs);
  */
 int onlp_file_find(char* root, char* fname, char** rpath);
 
-/**
- * @brief List a directory tree for the path.
- */
-int onlp_dir_read(char* root, char* prefix, int prefix_len, char** name, int size);
 #endif /* __ONLPLIB_FILE_H__ */
