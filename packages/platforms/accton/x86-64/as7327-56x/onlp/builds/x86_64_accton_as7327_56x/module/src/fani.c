@@ -68,7 +68,7 @@ enum fan_id {
     { \
         { ONLP_FAN_ID_CREATE(FAN_##fid##_ON_PSU_##pid), "PSU "#pid" - Fan "#fid, 0 },\
         0x0,\
-        ONLP_FAN_CAPS_SET_PERCENTAGE | ONLP_FAN_CAPS_GET_RPM | ONLP_FAN_CAPS_GET_PERCENTAGE,\
+        ONLP_FAN_CAPS_GET_RPM | ONLP_FAN_CAPS_GET_PERCENTAGE,\
         0,\
         0,\
         ONLP_FAN_MODE_INVALID,\
@@ -100,27 +100,76 @@ static int
 _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
 {
     int val = 0;
+    char *basepath;
 
     info->status |= ONLP_FAN_STATUS_PRESENT;
 
-    /* get fan direction */
-    if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
-        info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
-    }
+    if (BMC_IS_ENABLED()) {
+        if (pid == PSU1_ID) 
+            basepath = PSU1_BMC_BASE_PATH;
+        else if (pid == PSU2_ID)
+            basepath = PSU2_BMC_BASE_PATH;
+        else
+            return ONLP_STATUS_E_INVALID;
 
-    /* get fan fault status
-     */
-    if (psu_pmbus_info_get(pid, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
-        info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
-    }
+        /* Get power good status */
+        if (psu_bmc_info_get(basepath, "psu_power_good", &val) != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", pid);
+        }
 
-    /* get fan speed
-     */
-    if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
-        info->rpm = val;
-        info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
-    }
+        if(val == PSU_STATUS_POWER_GOOD) {
+            /* get fan direction */
+            if (psu_bmc_info_get(basepath, "psu_fan1_dir", &val) == ONLP_STATUS_OK) {
+                if (val == 0)
+                    info->status |= ONLP_FAN_STATUS_F2B;
+                else if (val == 1)
+                    info->status |= ONLP_FAN_STATUS_B2F;
+            }
 
+            /* get fan fault status */
+            if (psu_bmc_info_get(basepath, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
+                info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+            }
+
+            /* get fan speed */
+            if (psu_bmc_info_get(basepath, "psu_fan1_speed", &val) == ONLP_STATUS_OK) {
+                info->rpm = val;
+                info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+            }
+        } else {
+            info->status |= ONLP_FAN_STATUS_FAILED;
+            info->rpm = 0;
+            info->percentage = 0;
+        }
+
+    } else {
+        /* Get power good status */
+        if (psu_pmbus_info_get(pid, "psu_power_good", &val) != 0) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", pid);
+        }
+
+        if (val == PSU_STATUS_POWER_GOOD) {
+            /* get fan direction */
+            if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
+                info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+            }
+
+            /* get fan fault status */
+            if (psu_pmbus_info_get(pid, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
+                info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+            }
+
+            /* get fan speed */
+            if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
+                info->rpm = val;
+                info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+            }
+        } else {
+            info->status |= ONLP_FAN_STATUS_FAILED;
+            info->rpm = 0;
+            info->percentage = 0;
+        }
+    }
     return ONLP_STATUS_OK;
 }
 
@@ -278,6 +327,8 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
      fid = ONLP_OID_ID_GET(id);
      *info = finfo[fid];
  
+    initialize_bmc_status();
+
      info->status = 0;
 
      switch (fid)
@@ -296,6 +347,9 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
         case FAN_BOX2_FRONT_4:
         case FAN_BOX2_REAR_3:
         case FAN_BOX2_REAR_4:
+            if (BMC_IS_ENABLED()) {
+                info->caps &= ~ONLP_FAN_CAPS_SET_PERCENTAGE;
+            }
             rc =_onlp_fani_info_get_fan(fid, info);						
             break;
         default:

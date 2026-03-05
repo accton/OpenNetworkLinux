@@ -4,20 +4,20 @@
  * This module supports the accton cpld that hold the channel select
  * mechanism for other i2c slave devices, such as SFP.
  * This includes the:
- *	 Accton as7327_56x CPLD1/CPLD2
+ *      Accton as7327_56x CPLD1/CPLD2
  *
  * Based on:
  *	pca954x.c from Kumar Gala <galak@kernel.crashing.org>
  * Copyright (C) 2006
  *
  * Based on:
- *	pca954x.c from Ken Harrenstien
+ *      pca954x.c from Ken Harrenstien
  * Copyright (C) 2004 Google, Inc. (Ken Harrenstien)
  *
  * Based on:
- *	i2c-virtual_cb.c from Brian Kuschak <bkuschak@yahoo.com>
+ *      i2c-virtual_cb.c from Brian Kuschak <bkuschak@yahoo.com>
  * and
- *	pca9540.c from Jean Delvare <khali@linux-fr.org>.
+ *      pca9540.c from Jean Delvare <khali@linux-fr.org>.
  *
  * This file is licensed under the terms of the GNU General Public
  * License version 2. This program is licensed "as is" without any
@@ -34,10 +34,30 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/delay.h>
 
-#define I2C_RW_RETRY_COUNT				10
-#define I2C_RW_RETRY_INTERVAL			60 /* ms */
+#define I2C_RW_RETRY_COUNT              10
+#define I2C_RW_RETRY_INTERVAL           60 /* ms */
 #define FAN_MAX_DUTY_CYCLE              100
 #define FAN_TECK_SPEED_CNT              150 // 1/167.67*1000/2*60 = 178.92
+
+#define BMC_PRESENT_OFFSET              0x7
+#define BMC_PRESENT_MASK                0x1
+#define BMC_HEART_OFFSET                0x0
+#define BMC_HEART_MASK                  0x7
+
+#define BMC_PRESENT                     0
+#define BMC_NOT_PRESENT                 1
+
+#define BMC_ENABLE_OFFSET               0x0
+#define BMC_ENABLE_MASK                 0x1
+
+#define BMC_EN_ENABLE                   1
+#define BMC_EN_DISABLE                  0
+
+#define BMC_HEART_FRQ_10HZ              0
+#define BMC_HEART_FRQ_2HZ               1
+#define BMC_HEART_FRQ_05HZ              2
+#define BMC_HEART_FRQ_01HZ              3
+#define BMC_HEART_FRQ_0HZ               4
 
 static LIST_HEAD(cpld_client_list);
 static struct mutex     list_lock;
@@ -345,7 +365,9 @@ enum as7327_56x_cpld_sysfs_attributes {
 	FAN_WDT_ENABLE,
 	FAN_WDT_CLEAR,
 	FAN_WDT_COUNT,
-	SYSLED_WDT_CLEAR
+	SYSLED_WDT_CLEAR,
+    BMC_STATUS,
+    BMC_ENABLE
 };
 
 /* sysfs attributes for hwmon 
@@ -355,6 +377,8 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
              char *buf);
 static ssize_t show_rxlos_all(struct device *dev, struct device_attribute *da,
+             char *buf);
+static ssize_t show_bmc_enable(struct device *dev, struct device_attribute *da,
              char *buf);
 static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
@@ -396,7 +420,7 @@ static ssize_t set_sysled_wdt_clear(struct device *dev, struct device_attribute 
 	&sensor_dev_attr_module_tx_disable_##index.dev_attr.attr, \
 	&sensor_dev_attr_module_rx_los_##index.dev_attr.attr, \
 	&sensor_dev_attr_module_tx_fault_##index.dev_attr.attr
-	
+
 #define DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
     static SENSOR_DEVICE_ATTR(module_lpmode_##index, S_IRUGO | S_IWUSR, show_status, set_qsfp, MODULE_LPMODE_##index); \
     static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, show_status, set_qsfp, MODULE_RESET_##index); \
@@ -447,6 +471,8 @@ static SENSOR_DEVICE_ATTR(access, S_IWUSR, NULL, access, ACCESS);
 /* transceiver attributes */
 static SENSOR_DEVICE_ATTR(module_present_all, S_IRUGO, show_present_all, NULL, MODULE_PRESENT_ALL);
 static SENSOR_DEVICE_ATTR(module_rx_los_all, S_IRUGO, show_rxlos_all, NULL, MODULE_RXLOS_ALL);
+/* bmc enable */
+static SENSOR_DEVICE_ATTR(bmc_enable, S_IRUGO, show_bmc_enable, NULL, BMC_ENABLE);
 
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(1);
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(2);
@@ -528,6 +554,8 @@ static struct attribute *as7327_56x_cpld1_attributes[] = {
 	/* transceiver attributes */
 	&sensor_dev_attr_module_present_all.dev_attr.attr,
 	&sensor_dev_attr_module_rx_los_all.dev_attr.attr,
+    /* bmc enable */
+    &sensor_dev_attr_bmc_enable.dev_attr.attr,
 	DECLARE_SFP_TRANSCEIVER_ATTR(1),
 	DECLARE_SFP_TRANSCEIVER_ATTR(2),
 	DECLARE_SFP_TRANSCEIVER_ATTR(3),
@@ -1259,6 +1287,39 @@ static ssize_t set_sysled_wdt_clear(struct device *dev, struct device_attribute 
     }
 
     return count;
+}
+
+static ssize_t show_bmc_enable(struct device *dev, struct device_attribute *da, char *buf)
+{
+    int status;
+    int bmc_enable = -1;
+    int bmc_present = -1;
+    int bmc_heart = -1;
+    struct i2c_client *client = to_i2c_client(dev);
+
+    status = as7327_56x_cpld_read_internal(client, 0x82);
+    if(unlikely(status < 0))
+        return status;
+
+    bmc_enable = (status >> BMC_ENABLE_OFFSET) & BMC_ENABLE_MASK;
+
+    status = as7327_56x_cpld_read_internal(client, 0x80);
+    if(unlikely(status < 0))
+        return status;
+
+    bmc_present = (status >> BMC_PRESENT_OFFSET) & BMC_PRESENT_MASK;
+    bmc_heart =  (status >> BMC_HEART_OFFSET) & BMC_HEART_MASK;
+
+    if((bmc_enable == BMC_EN_ENABLE) && (bmc_present == BMC_PRESENT) && (bmc_heart == BMC_HEART_FRQ_2HZ))
+    {
+        return sprintf(buf, "%d\n", 1);
+    }
+    else
+    {
+        return sprintf(buf, "%d\n", 0);
+    }
+
+    return -1;
 }
 
 /*

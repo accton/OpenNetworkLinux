@@ -29,11 +29,11 @@
 #include <onlplib/file.h>
 #include "x86_64_accton_as7327_56x_log.h"
 
-#define CHASSIS_FAN_COUNT		8
-#define CHASSIS_THERMAL_COUNT	4
-#define CHASSIS_PSU_COUNT		2
-#define CHASSIS_PSU_THERMAL_COUNT   2
-#define CHASSIS_LED_COUNT		4
+#define CHASSIS_FAN_COUNT           8
+#define CHASSIS_THERMAL_COUNT       4
+#define CHASSIS_PSU_COUNT           2
+#define CHASSIS_PSU_THERMAL_COUNT   3
+#define CHASSIS_LED_COUNT           4
 
 #define PSU1_ID 1
 #define PSU2_ID 2
@@ -44,17 +44,27 @@
 #define PSU1_AC_PMBUS_PREFIX "/sys/bus/i2c/devices/1-005a/"
 #define PSU2_AC_PMBUS_PREFIX "/sys/bus/i2c/devices/2-0059/"
 
+#define PSU1_BMC_BASE_PATH   "/sys/bus/platform/devices/as7327_56x_psu_bmc.0/hwmon/*%s"
+#define PSU2_BMC_BASE_PATH   "/sys/bus/platform/devices/as7327_56x_psu_bmc.1/hwmon/*%s"
+
 #define PSU1_AC_PMBUS_NODE(node) PSU1_AC_PMBUS_PREFIX#node
 #define PSU2_AC_PMBUS_NODE(node) PSU2_AC_PMBUS_PREFIX#node
 
-#define CPLD_NODE_PATH	"/sys/bus/i2c/devices/i2c-157/157-0062/"
-#define FAN_NODE(node)	CPLD_NODE_PATH#node
-#define FAN_WDT_ENABLE       0x1
-#define FAN_WDT_DISABLE      0x0
-#define FAN_WDT_CLEAR        0x1
+#define CPLD_NODE_PATH      "/sys/bus/i2c/devices/i2c-157/157-0062/"
+#define BMC_ENABLE_NODE     CPLD_NODE_PATH"bmc_enable"
+#define FAN_NODE(node)      CPLD_NODE_PATH#node
+#define FAN_WDT_ENABLE      0x1
+#define FAN_WDT_DISABLE     0x0
+#define FAN_WDT_CLEAR       0x1
 
 
 #define IDPROM_PATH "/sys/bus/i2c/devices/0-0050/eeprom"
+
+#define PSU_STATUS_POWER_GOOD   1
+#define PSU_STATUS_PRESENT      1
+
+#define PSU_MODEL_NAME_LEN      11
+#define PSU_SERIAL_NUMBER_LEN   14
 
 int onlp_file_write_integer(char *filename, int value);
 int onlp_file_read_binary(char *filename, char *buffer, int buf_size, int data_len);
@@ -70,10 +80,18 @@ typedef enum psu_type {
     PSU_TYPE_DC
 } psu_type_t;
 
+int initialize_bmc_status(void);
+
+int psu_bmc_str_get(char *basepath, char *field, char *data, int size);
+int psu_bmc_info_get(char *basepath, char *field, int *val);
+
 psu_type_t get_psu_type(int id, char* modelname, int modelname_len);
 int psu_pmbus_model_name_get(int id, char *model, int model_len);
 int psu_pmbus_serial_number_get(int id, char *serial, int serial_len);
 
+int bmc_enable;
+
+#define BMC_IS_ENABLED()    bmc_enable
 //#define DEBUG_MODE 1
 
 #if (DEBUG_MODE == 1)
