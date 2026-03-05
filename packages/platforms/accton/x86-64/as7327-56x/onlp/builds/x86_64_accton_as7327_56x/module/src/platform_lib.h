@@ -60,6 +60,9 @@
 
 #define IDPROM_PATH "/sys/bus/i2c/devices/0-0050/eeprom"
 
+#define PSU_STATUS_POWER_GOOD   1
+#define PSU_STATUS_PRESENT      1
+
 #define PSU_MODEL_NAME_LEN      11
 #define PSU_SERIAL_NUMBER_LEN   14
 

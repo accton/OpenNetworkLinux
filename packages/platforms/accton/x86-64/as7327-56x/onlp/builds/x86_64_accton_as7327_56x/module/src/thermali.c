@@ -166,7 +166,9 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
     int   tid;
     int   pid;
     int   index = 0;  /* thermal index in psu */
+    int   psu_power_good = PSU_STATUS_POWER_GOOD;
     char  path[64] = {0};
+    char *basepath = NULL;
 
     VALIDATE(id);
 
@@ -207,19 +209,40 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
 
             /* get path for each sensor of the psu */
             if (BMC_IS_ENABLED()) {
-                if (pid == PSU1_ID)
+                if (pid == PSU1_ID) {
+                    basepath = PSU1_BMC_BASE_PATH;
                     sprintf(path, PSU1_THERMAL_BMC_BASE_PATH, index);
-                else if (pid == PSU2_ID)
+                } else if (pid == PSU2_ID) {
+                    basepath = PSU2_BMC_BASE_PATH;
                     sprintf(path, PSU2_THERMAL_BMC_BASE_PATH, index);
-                else
+                } else {
                     return ONLP_STATUS_E_INVALID;
+                }
+
+                /* Get power good status */
+                if (psu_bmc_info_get(basepath, "psu_power_good", &psu_power_good) != ONLP_STATUS_OK) {
+                    AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", pid);
+                }
+
             } else {
                 sprintf(path, PSU_THERMAL_PATH_FORMAT, directory[tid], index);
+
+                /* Get power good status */
+                if (psu_pmbus_info_get(pid, "psu_power_good", &psu_power_good) != 0) {
+                    AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", pid);
+                }
+
             }
             break;
         default:
             return ONLP_STATUS_E_INVALID;
     };
+
+    if(psu_power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_THERMAL_STATUS_FAILED;
+        info->mcelsius = 0;
+        return ONLP_STATUS_OK;
+    }
 
     if (onlp_file_read_int(&info->mcelsius, path) < 0) {
         AIM_LOG_ERROR("Unable to read status from file (%s)\r\n", path);

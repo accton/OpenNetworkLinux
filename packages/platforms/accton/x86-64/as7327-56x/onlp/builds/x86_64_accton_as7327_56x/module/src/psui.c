@@ -29,10 +29,6 @@
 #include <string.h>
 #include "platform_lib.h"
 
-#define PSU_STATUS_PRESENT    1
-#define PSU_STATUS_POWER_GOOD 1
-
-
 #define VALIDATE(_id)                           \
     do {                                        \
         if(!ONLP_OID_IS_PSU(_id)) {             \
@@ -139,15 +135,15 @@ psu_detail_info_get(onlp_psu_info_t* info)
     int index = ONLP_OID_ID_GET(info->hdr.id);
     int temp_index = 0;
 
-    if (info->status & ONLP_PSU_STATUS_UNPLUGGED) {
-        return ONLP_STATUS_OK;
-    }
-
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
     for(temp_index = 1; temp_index <= CHASSIS_PSU_THERMAL_COUNT; temp_index++)
     {
         info->hdr.coids[temp_index] = ONLP_THERMAL_ID_CREATE((index-1)*CHASSIS_PSU_THERMAL_COUNT + CHASSIS_THERMAL_COUNT + temp_index);
+    }
+
+    if (info->status & (ONLP_PSU_STATUS_FAILED | ONLP_PSU_STATUS_UNPLUGGED)) {
+        return ONLP_STATUS_OK;
     }
 
     if(BMC_IS_ENABLED()) {
@@ -229,15 +225,6 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 
         onlp_psu_str_check(info->serial, ONLP_CONFIG_INFO_STR_MAX);
 
-        /* Get power good status */
-        if (psu_bmc_info_get(basepath, "psu_power_good", &val) != ONLP_STATUS_OK) {
-            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
-        }
-
-        if (val != PSU_STATUS_POWER_GOOD) {
-            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
-        }
-
         /* get psu type
          */
         if (psu_bmc_info_get(basepath, "psu_vin_type", &psu_type) != ONLP_STATUS_OK) {
@@ -258,6 +245,17 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
                 ret = ONLP_STATUS_E_UNSUPPORTED;
                 break;
         }
+
+        /* Get power good status */
+        if (psu_bmc_info_get(basepath, "psu_power_good", &val) != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
+        }
+
+        if (val != PSU_STATUS_POWER_GOOD) {
+            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+            info->caps = 0;
+        }
+
     } else {
         /* Get the present state */
         if (psu_pmbus_info_get(index, "psu_present", &val) != 0) {
@@ -280,15 +278,6 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 
         onlp_psu_str_check(info->serial, ONLP_CONFIG_INFO_STR_MAX);
 
-        /* Get power good status */
-        if (psu_pmbus_info_get(index, "psu_power_good", &val) != 0) {
-            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
-        }
-
-        if (val != PSU_STATUS_POWER_GOOD) {
-            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
-        }
-
         /* get psu type
          */
         if (psu_pmbus_info_get(index, "psu_mfr_vin_type", &psu_type) != 0) {
@@ -309,6 +298,17 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
                 ret = ONLP_STATUS_E_UNSUPPORTED;
                 break;
         }
+
+        /* Get power good status */
+        if (psu_pmbus_info_get(index, "psu_power_good", &val) != 0) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
+        }
+
+        if (val != PSU_STATUS_POWER_GOOD) {
+            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+            info->caps = 0;
+        }
+
     }
 
     ret = psu_detail_info_get(info);

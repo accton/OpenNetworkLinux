@@ -112,39 +112,62 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
         else
             return ONLP_STATUS_E_INVALID;
 
-        /* get fan direction */
-        if (psu_bmc_info_get(basepath, "psu_fan1_dir", &val) == ONLP_STATUS_OK) {
-            if (val == 0)
-                info->status |= ONLP_FAN_STATUS_F2B;
-            else if (val == 1)
-                info->status |= ONLP_FAN_STATUS_B2F;
+        /* Get power good status */
+        if (psu_bmc_info_get(basepath, "psu_power_good", &val) != ONLP_STATUS_OK) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", pid);
         }
 
-        /* get fan fault status */
-        if (psu_bmc_info_get(basepath, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
-            info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+        if(val == PSU_STATUS_POWER_GOOD) {
+            /* get fan direction */
+            if (psu_bmc_info_get(basepath, "psu_fan1_dir", &val) == ONLP_STATUS_OK) {
+                if (val == 0)
+                    info->status |= ONLP_FAN_STATUS_F2B;
+                else if (val == 1)
+                    info->status |= ONLP_FAN_STATUS_B2F;
+            }
+
+            /* get fan fault status */
+            if (psu_bmc_info_get(basepath, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
+                info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+            }
+
+            /* get fan speed */
+            if (psu_bmc_info_get(basepath, "psu_fan1_speed", &val) == ONLP_STATUS_OK) {
+                info->rpm = val;
+                info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+            }
+        } else {
+            info->status |= ONLP_FAN_STATUS_FAILED;
+            info->rpm = 0;
+            info->percentage = 0;
         }
 
-        /* get fan speed */
-        if (psu_bmc_info_get(basepath, "psu_fan1_speed", &val) == ONLP_STATUS_OK) {
-            info->rpm = val;
-            info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
-        }
     } else {
-        /* get fan direction */
-        if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
-            info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+        /* Get power good status */
+        if (psu_pmbus_info_get(pid, "psu_power_good", &val) != 0) {
+            AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n", pid);
         }
 
-        /* get fan fault status */
-        if (psu_pmbus_info_get(pid, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
-            info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
-        }
+        if (val == PSU_STATUS_POWER_GOOD) {
+            /* get fan direction */
+            if (psu_pmbus_info_get(pid, "psu_fan_dir", &val) == ONLP_STATUS_OK) {
+                info->status |= val ? ONLP_FAN_STATUS_B2F : ONLP_FAN_STATUS_F2B;
+            }
 
-        /* get fan speed */
-        if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
-            info->rpm = val;
-            info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+            /* get fan fault status */
+            if (psu_pmbus_info_get(pid, "psu_fan1_fault", &val) == ONLP_STATUS_OK) {
+                info->status |= (val > 0) ? ONLP_FAN_STATUS_FAILED : 0;
+            }
+
+            /* get fan speed */
+            if (psu_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
+                info->rpm = val;
+                info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
+            }
+        } else {
+            info->status |= ONLP_FAN_STATUS_FAILED;
+            info->rpm = 0;
+            info->percentage = 0;
         }
     }
     return ONLP_STATUS_OK;
