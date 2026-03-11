@@ -38,6 +38,18 @@ int sfp_map[] = {
 26,30,31,27
 };
 
+#define VALIDATE_SFP(_port) \
+    do { \
+        if (_port < 0 || _port > 47) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
+
+#define VALIDATE_QSFP(_port) \
+    do { \
+        if (_port < 48 || _port > 53 ) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
+
 #define PORT_BUS_INDEX(port) (sfp_map[port])
 
 #define PORT_EEPROM_FORMAT              "/sys/bus/i2c/devices/%d-0050/eeprom"
@@ -45,6 +57,7 @@ int sfp_map[] = {
 #define MODULE_RXLOS_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_rx_los_%d"
 #define MODULE_TXFAULT_FORMAT           "/sys/bus/i2c/devices/%d-00%d/module_tx_fault_%d"
 #define MODULE_TXDISABLE_FORMAT         "/sys/bus/i2c/devices/%d-00%d/module_tx_disable_%d"
+#define MODULE_RESET_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_reset_%d"
 #define MODULE_PRESENT_ALL_ATTR	        "/sys/bus/i2c/devices/%d-00%d/module_present_all"
 #define MODULE_RXLOS_ALL_ATTR_CPLD2	    "/sys/bus/i2c/devices/3-0061/module_rx_los_all"
 #define MODULE_RXLOS_ALL_ATTR_CPLD3	    "/sys/bus/i2c/devices/3-0062/module_rx_los_all"
@@ -324,18 +337,28 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 {
     int rv;
 
-    if (port < 0 || port >= 48) {
-        return ONLP_STATUS_E_UNSUPPORTED;
-    }
-
     int addr = (port < 38) ? 61 : 62;
 
     switch(control)
         {
         case ONLP_SFP_CONTROL_TX_DISABLE:
             {
+                VALIDATE_SFP(port);
                 if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to set tx_disable status to port(%d)\r\n", port);
+                    rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else {
+                    rv = ONLP_STATUS_OK;
+                }
+                break;
+            }
+
+        case ONLP_SFP_CONTROL_RESET:
+            {
+                VALIDATE_QSFP(port);
+                if (onlp_file_write_int(value, MODULE_RESET_FORMAT, 3, addr, (port+1)) < 0) {
+                    AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 else {
@@ -357,17 +380,14 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 {
     int rv;
 
-    if (port < 0 || port >= 48) {
-        return ONLP_STATUS_E_UNSUPPORTED;
-    }
-
     int addr = (port < 38) ? 61 : 62;
 
     switch(control)
         {
         case ONLP_SFP_CONTROL_RX_LOS:
             {
-            	if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT, 3, addr, (port+1)) < 0) {
+                VALIDATE_SFP(port);
+                if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT, 3, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -379,7 +399,8 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
         case ONLP_SFP_CONTROL_TX_FAULT:
             {
-            	if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, 3, addr, (port+1)) < 0) {
+                VALIDATE_SFP(port);
+                if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, 3, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -391,11 +412,25 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
         case ONLP_SFP_CONTROL_TX_DISABLE:
             {
-            	if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
+                VALIDATE_SFP(port);
+                if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 else {
+                    rv = ONLP_STATUS_OK;
+                }
+                break;
+            }
+
+        case ONLP_SFP_CONTROL_RESET: 
+            {
+                VALIDATE_QSFP(port);
+                if (onlp_file_read_int(value, MODULE_RESET_FORMAT, 3, addr, (port+1)) < 0) {
+                    AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", port);
+                    rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else { //port 0~47
                     rv = ONLP_STATUS_OK;
                 }
                 break;
