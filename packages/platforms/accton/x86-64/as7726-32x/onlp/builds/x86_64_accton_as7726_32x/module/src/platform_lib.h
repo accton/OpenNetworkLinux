@@ -66,7 +66,7 @@
 #define FAN_BOARD_CPLD_WDT_DISABLE      0x0
 
 
-#define IDPROM_PATH "/sys/class/i2c-adapter/i2c-0/0-0056/eeprom"
+#define IDPROM_PATH "/sys/bus/i2c/devices/0-0056/eeprom"
 
 #define WARM_RESET_FORMAT "/sys/bus/i2c/devices/11-0060/reset_mac"
 
