@@ -128,7 +128,7 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int   i, v[NUM_OF_CPLD]={0};
     int   rv;
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char *bios_ver = NULL;
     char *paths[] = {IDPROM_PATH_2, IDPROM_PATH_1};
 

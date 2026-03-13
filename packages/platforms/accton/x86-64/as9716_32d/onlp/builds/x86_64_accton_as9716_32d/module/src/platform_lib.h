@@ -62,8 +62,8 @@
 #define FAN_NODE(node)	FAN_BOARD_PATH#node
 
 /*Old board's eeprom i2c-addr is 0x56, new board eeprom i2c-addr is 0x57*/
-#define IDPROM_PATH_1 "/sys/class/i2c-adapter/i2c-0/0-0057/eeprom"
-#define IDPROM_PATH_2 "/sys/class/i2c-adapter/i2c-0/0-0056/eeprom"
+#define IDPROM_PATH_1 "/sys/bus/i2c/devices/0-0057/eeprom"
+#define IDPROM_PATH_2 "/sys/bus/i2c/devices/0-0056/eeprom"
 
 #define WARM_RESET_FORMAT "/sys/bus/i2c/devices/19-0060/reset_mac"
 
