@@ -381,11 +381,10 @@ exit_remove:
 	return status;
 }
 
-static int as4625_fan_remove(struct platform_device *pdev)
+static void as4625_fan_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&data->hwmon_dev->kobj, &as4625_fan_group);
 	hwmon_device_unregister(data->hwmon_dev);
-	return 0;
 }
 
 static struct platform_driver as4625_fan_driver = {

@@ -18,7 +18,7 @@ x86-64-accton-as4625-54t-r0:
       --stop=1
 
     kernel:
-      <<: *kernel-6-1
+      <<: *kernel-6-12
 
     args: >-
       console=ttyS0,115200n8

@@ -111,7 +111,7 @@ int
 onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int ver_major = 0, ver_minor = 0, bus = 0;
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char *bios_ver = NULL;
     char prefix_path[64];
 
