@@ -1169,7 +1169,7 @@ exit_pci_disable:
     return status;
 }
 
-static int as9817_64_pcie_fpga_stat_remove(struct platform_device *pdev)
+static void as9817_64_pcie_fpga_stat_remove(struct platform_device *pdev)
 {
     struct as9817_64_fpga_data *fpga_ctl = platform_get_drvdata(pdev);
 
@@ -1189,8 +1189,6 @@ static int as9817_64_pcie_fpga_stat_remove(struct platform_device *pdev)
         release_mem_region(fpga_ctl->pci_fpga_dev.data_region2, REGION_LEN);
         pci_disable_device(fpga_ctl->pci_fpga_dev.pci_dev);
     }
-
-    return 0;
 }
 
 static struct platform_driver pcie_fpga_port_stat_driver = {
