@@ -185,9 +185,9 @@ static const struct hwmon_chip_info as7712_32x_psu_chip_info = {
     .info = as7712_32x_psu_info,
 };
 
-static int as7712_32x_psu_probe(struct i2c_client *client,
-            const struct i2c_device_id *dev_id)
+static int as7712_32x_psu_probe(struct i2c_client *client)
 {
+    const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
     struct as7712_32x_psu_data *data;
     int status;
 

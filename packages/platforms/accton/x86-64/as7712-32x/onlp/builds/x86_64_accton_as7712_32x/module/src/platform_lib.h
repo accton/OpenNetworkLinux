@@ -48,8 +48,8 @@
 #define PSU1_AC_HWMON_NODE(node) PSU1_AC_HWMON_PREFIX#node
 #define PSU2_AC_HWMON_NODE(node) PSU2_AC_HWMON_PREFIX#node
 
-#define IDPROM_PATH_1 "/sys/class/i2c-adapter/i2c-0/0-0057/eeprom"
-#define IDPROM_PATH_2 "/sys/class/i2c-adapter/i2c-1/1-0057/eeprom"
+#define IDPROM_PATH_1 "/sys/bus/i2c/devices/0-0057/eeprom"
+#define IDPROM_PATH_2 "/sys/bus/i2c/devices/1-0057/eeprom"
 
 #define WARM_RESET_FORMAT "/sys/bus/i2c/devices/4-0060/reset_mac"
 
