@@ -852,7 +852,7 @@ err_clk:
     return ret;
 }
 
-static int ocores_i2c_remove(struct platform_device *pdev)
+static void ocores_i2c_remove(struct platform_device *pdev)
 {
     struct ocores_i2c *i2c = platform_get_drvdata(pdev);
     u8 ctrl;
@@ -870,8 +870,6 @@ static int ocores_i2c_remove(struct platform_device *pdev)
 
     if (!IS_ERR(i2c->clk))
         clk_disable_unprepare(i2c->clk);
-
-    return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

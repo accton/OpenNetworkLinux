@@ -198,7 +198,7 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int i, len, ret = ONLP_STATUS_OK;
     char *v[NUM_OF_CPLD_VER] = {NULL};
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char *bios_ver = NULL;
     char *bmc_buf = NULL;
     char *aux_buf = NULL;

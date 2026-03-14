@@ -49,7 +49,7 @@ static ssize_t show_psu_info(struct device *dev, struct device_attribute *attr,
 static ssize_t show_string(struct device *dev, struct device_attribute *attr,
                             char *buf);
 static int as9817_64_psu_probe(struct platform_device *pdev);
-static int as9817_64_psu_remove(struct platform_device *pdev);
+static void as9817_64_psu_remove(struct platform_device *pdev);
 
 enum psu_id {
     PSU_1,
@@ -852,7 +852,7 @@ static int as9817_64_psu_probe(struct platform_device *pdev)
     return 0;
 }
 
-static int as9817_64_psu_remove(struct platform_device *pdev)
+static void as9817_64_psu_remove(struct platform_device *pdev)
 {
     int i = 0;
 
@@ -864,8 +864,6 @@ static int as9817_64_psu_remove(struct platform_device *pdev)
         }
         mutex_unlock(&data->update_lock);
     }
-
-    return 0;
 }
 
 static int __init as9817_64_psu_init(void)

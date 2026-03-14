@@ -46,7 +46,7 @@
 #define IPMI_RESET_CMD_LENGTH 6
 
 static int as9817_64_sys_probe(struct platform_device *pdev);
-static int as9817_64_sys_remove(struct platform_device *pdev);
+static void as9817_64_sys_remove(struct platform_device *pdev);
 static ssize_t show_version(struct device *dev,
                                 struct device_attribute *da, char *buf);
 static ssize_t get_bmc_fan_controller(struct device *dev,
@@ -418,11 +418,9 @@ exit:
     return status;
 }
 
-static int as9817_64_sys_remove(struct platform_device *pdev)
+static void as9817_64_sys_remove(struct platform_device *pdev)
 {
     sysfs_remove_group(&pdev->dev.kobj, &as9817_64_sys_group);
-
-    return 0;
 }
 
 static int __init as9817_64_sys_init(void)

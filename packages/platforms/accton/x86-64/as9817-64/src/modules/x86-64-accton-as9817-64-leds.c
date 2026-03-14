@@ -43,7 +43,7 @@ static ssize_t set_led(struct device *dev, struct device_attribute *da,
 static ssize_t show_led(struct device *dev, struct device_attribute *attr,
             char *buf);
 static int as9817_64_led_probe(struct platform_device *pdev);
-static int as9817_64_led_remove(struct platform_device *pdev);
+static void as9817_64_led_remove(struct platform_device *pdev);
 
 struct as9817_64_led_data {
     struct platform_device *pdev;
@@ -323,11 +323,9 @@ exit:
     return status;
 }
 
-static int as9817_64_led_remove(struct platform_device *pdev)
+static void as9817_64_led_remove(struct platform_device *pdev)
 {
     sysfs_remove_group(&pdev->dev.kobj, &as9817_64_led_group);
-
-    return 0;
 }
 
 static int __init as9817_64_led_init(void)

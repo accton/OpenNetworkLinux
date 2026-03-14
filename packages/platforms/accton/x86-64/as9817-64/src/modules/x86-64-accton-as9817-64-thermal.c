@@ -48,7 +48,7 @@ static ssize_t show_threshold(struct device *dev, struct device_attribute *da,
     char *buf);
 #endif
 static int as9817_64_thermal_probe(struct platform_device *pdev);
-static int as9817_64_thermal_remove(struct platform_device *pdev);
+static void as9817_64_thermal_remove(struct platform_device *pdev);
 
 enum temp_data_index {
     TEMP_ADDR,
@@ -305,7 +305,7 @@ static int as9817_64_thermal_probe(struct platform_device *pdev)
     return status;
 }
 
-static int as9817_64_thermal_remove(struct platform_device *pdev)
+static void as9817_64_thermal_remove(struct platform_device *pdev)
 {
     mutex_lock(&data->update_lock);
     if (data->hwmon_dev) {
@@ -313,8 +313,6 @@ static int as9817_64_thermal_remove(struct platform_device *pdev)
         data->hwmon_dev = NULL;
     }
     mutex_unlock(&data->update_lock);
-
-    return 0;
 }
 
 static int __init as9817_64_thermal_init(void)
