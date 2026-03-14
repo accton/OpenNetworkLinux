@@ -100,7 +100,7 @@ int onlp_sysi_oids_get(onlp_oid_t* table, int max)
 int onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int   i, v[NUM_OF_CPLD]={0};
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char *bios_ver = NULL;
 
     /* BIOS version */

@@ -839,9 +839,9 @@ static ssize_t show_bios_flash_id(struct device *dev, struct device_attribute *a
 /*
  * I2C init/probing/exit functions
  */
-static int as9726_32d_cpld_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static int as9726_32d_cpld_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *id = i2c_client_get_device_id(client);
 	struct i2c_adapter *adap = to_i2c_adapter(client->dev.parent);
 	struct as9726_32d_cpld_data *data;
 	int ret = -ENODEV;
