@@ -514,6 +514,16 @@ device_busy:
     FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + I2C_CONTROLLER_OFFSET + channel*0x20)) = CONTROL_ENABLE;)
     FPGA_SLEEP(500);
 
+    /* Set CR with 8'h20 to issue a READ command. This is going to issue a 9-clock command. */
+    i2c_cmd_stat_data = COMMAND_READ;
+    FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
+
+    /* Check the TIP bit of SR, to make sure the command is done. */
+    if(fpga_smbus_check_tip(fpga_pci_dev, i2c_cmd_stat_addr, &i2c_stat))
+    {
+        printk(KERN_NOTICE "device_busy read, fail to check TIP, i2c_stat:0x%x.\n", i2c_stat);
+    }
+
     /*Set CR to 8'h40 to issue a STOP command to avoid error.*/
     i2c_cmd_stat_data = COMMAND_STOP;
     FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
@@ -528,6 +538,16 @@ device_busy:
     return (-EBUSY);
 
 no_ack_response:
+    /* Set CR with 8'h20 to issue a READ command. This is going to issue a 9-clock command. */
+    i2c_cmd_stat_data = COMMAND_READ;
+    FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
+
+    /* Check the TIP bit of SR, to make sure the command is done. */
+    if(fpga_smbus_check_tip(fpga_pci_dev, i2c_cmd_stat_addr, &i2c_stat))
+    {
+        printk(KERN_NOTICE "no_ack_response read, fail to check TIP, i2c_stat:0x%x.\n", i2c_stat);
+    }
+
     /*Set CR to 8'h40 to issue a STOP command to avoid error.*/
     i2c_cmd_stat_data = COMMAND_STOP;
     FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
@@ -708,6 +728,16 @@ device_busy:
     FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + I2C_CONTROLLER_OFFSET + channel*0x20)) = CONTROL_ENABLE;)
     FPGA_SLEEP(500);
 
+    /* Set CR with 8'h20 to issue a READ command. This is going to issue a 9-clock command. */
+    i2c_cmd_stat_data = COMMAND_READ;
+    FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
+
+    /* Check the TIP bit of SR, to make sure the command is done. */
+    if(fpga_smbus_check_tip(fpga_pci_dev, i2c_cmd_stat_addr, &i2c_stat))
+    {
+        printk(KERN_NOTICE "device_busy write, fail to check TIP, i2c_stat:0x%x.\n", i2c_stat);
+    }
+
     /*Set CR to 8'h40 to issue a STOP command to avoid error.*/
     i2c_cmd_stat_data = COMMAND_STOP;
     FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
@@ -721,6 +751,16 @@ device_busy:
     return (-EBUSY);
 
 no_ack_response:
+    /* Set CR with 8'h20 to issue a READ command. This is going to issue a 9-clock command. */
+    i2c_cmd_stat_data = COMMAND_READ;
+    FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
+
+    /* Check the TIP bit of SR, to make sure the command is done. */
+    if(fpga_smbus_check_tip(fpga_pci_dev, i2c_cmd_stat_addr, &i2c_stat))
+    {
+        printk(KERN_NOTICE "no_ack_response write, fail to check TIP, i2c_stat:0x%x.\n", i2c_stat);
+    }
+
     /* Set CR to 8'h40 to issue a STOP command to avoid error.*/
     i2c_cmd_stat_data = COMMAND_STOP;
     FPGA_ACCESS(*((unsigned int *) (fpga_pci_dev->fpga_base + i2c_cmd_stat_addr)) = i2c_cmd_stat_data;)
