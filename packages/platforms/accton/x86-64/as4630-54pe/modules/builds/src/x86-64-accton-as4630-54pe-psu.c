@@ -214,9 +214,9 @@ static int find_models_min_offset(void) {
     return min_offset;
 }
 
-static int as4630_54pe_psu_probe(struct i2c_client *client,
-                                const struct i2c_device_id *dev_id)
+static int as4630_54pe_psu_probe(struct i2c_client *client)
 {
+    const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
     struct as4630_54pe_psu_data *data;
     int status;
 

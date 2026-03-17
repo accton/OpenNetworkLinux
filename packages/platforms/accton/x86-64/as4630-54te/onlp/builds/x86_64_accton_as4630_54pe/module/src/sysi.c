@@ -111,7 +111,7 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
     int i, v[NUM_OF_CPLD_VER] = {0};
     int bus_offset = 0;
     char path[64];
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char *bios_ver = NULL;
 
     get_i2c_bus_offset(&bus_offset);

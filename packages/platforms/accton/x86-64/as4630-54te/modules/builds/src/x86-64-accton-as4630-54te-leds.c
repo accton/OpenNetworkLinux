@@ -470,14 +470,12 @@ static int as4630_54te_led_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int as4630_54te_led_remove(struct platform_device *pdev)
+static void as4630_54te_led_remove(struct platform_device *pdev)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(as4630_54te_leds); i++)
 		led_classdev_unregister(&as4630_54te_leds[i]);
-
-	return 0;
 }
 
 static struct platform_driver as4630_54te_led_driver = {
