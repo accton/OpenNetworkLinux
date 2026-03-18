@@ -160,7 +160,7 @@ static int as9817_64_mux_probe(struct i2c_client *client)
 
 	/* Now create an adapter for each channel */
 	for (i = 0; i < chips[data->type].nchans; i++) {
-		ret = i2c_mux_add_adapter(muxc, i, 0);
+		ret = i2c_mux_add_adapter(muxc, 0, i);
 		if (ret)
 			goto exit_mux;
 	}
