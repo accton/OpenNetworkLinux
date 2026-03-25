@@ -42,6 +42,9 @@ int sfp_map[] = {
 #define SFP_PORT_MAX 47
 #define QSFP_PORT_MIN 48
 #define QSFP_PORT_MAX 53
+#define MIN_PORT SFP_PORT_MIN
+#define MAX_PORT QSFP_PORT_MAX
+
 #define VALIDATE_SFP(_port) \
     do { \
         if (_port < SFP_PORT_MIN || _port > SFP_PORT_MAX) \
@@ -51,6 +54,12 @@ int sfp_map[] = {
 #define VALIDATE_QSFP(_port) \
     do { \
         if (_port < QSFP_PORT_MIN || _port > QSFP_PORT_MAX ) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
+
+#define VALIDATE_PORT(_port) \
+    do { \
+        if (_port < MIN_PORT || _port > MAX_PORT ) \
             return ONLP_STATUS_E_UNSUPPORTED; \
     } while(0)
 
@@ -345,42 +354,37 @@ int
 onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 {
     int rv;
-
     int addr = (port < 38) ? 61 : 62;
     int present = 0;
+
+    VALIDATE_PORT(port);
 
     switch(control)
         {
         case ONLP_SFP_CONTROL_TX_DISABLE:
         case ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL:
             {
-                if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
-                    if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
-                        AIM_LOG_ERROR("Unable to set tx_disable status to port(%d)\r\n", port);
-                        rv = ONLP_STATUS_E_INTERNAL;
+                present = onlp_sfpi_is_present(port);
+                if(present == 1) {
+                    if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
+                        if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
+                            AIM_LOG_ERROR("Unable to set tx_disable status to port(%d)\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
                     }
-                    else {
-                        rv = ONLP_STATUS_OK;
-                    }
-                }
-                else if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX){ //QSFP
-                    present = onlp_sfpi_is_present(port);
-
-                    if(present == 1)
-                    {
+                    else if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX){ //QSFP
                         /* txdis valid bit(bit0-bit3), xxxx 1111 */
                         value = value & 0xf;
                         onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS, value);
 
                         rv = ONLP_STATUS_OK;
                     }
-                    else
-                    {
-                        rv = ONLP_STATUS_E_INTERNAL;
-                    }
                 }
                 else {
-                    rv = ONLP_STATUS_E_UNSUPPORTED;
+                    rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
             }
@@ -423,10 +427,11 @@ int
 onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 {
     int rv;
-
     int addr = (port < 38) ? 61 : 62;
     int tx_dis_val = 0;
     int present = 0;
+
+    VALIDATE_PORT(port);
 
     switch(control)
         {
@@ -459,30 +464,27 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
         case ONLP_SFP_CONTROL_TX_DISABLE:
         case ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL:
             {
-                if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
-                    if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
-                        AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
-                        rv = ONLP_STATUS_E_INTERNAL;
+                present = onlp_sfpi_is_present(port);
+                if(present == 1){
+                    if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
+                        if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, 3, addr, (port+1)) < 0) {
+                            AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
                     }
-                    else {
-                        rv = ONLP_STATUS_OK;
-                    }
-                }
-                else if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX){ //QSFP
-                    present = onlp_sfpi_is_present(port);
-                    if(present == 1){
+                    else if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX){ //QSFP
                         /* txdis valid bit(bit0-bit3), xxxx 1111 */
                         tx_dis_val = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS);
                         *value = tx_dis_val;
 
                         rv = ONLP_STATUS_OK;
-                    }
-                    else{
-                        rv = ONLP_STATUS_E_INTERNAL;
-                    }
+                        }
                 }
                 else {
-                    rv = ONLP_STATUS_E_UNSUPPORTED;
+                    rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
             }
