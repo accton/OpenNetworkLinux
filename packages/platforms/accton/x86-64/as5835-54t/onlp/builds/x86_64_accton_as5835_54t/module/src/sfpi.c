@@ -231,12 +231,13 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
     int rv;
     int present = 0;
 
+    VALIDATE_QSFP(port);
+
     switch(control)
         {
         case ONLP_SFP_CONTROL_TX_DISABLE:
         case ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL:
         {
-            VALIDATE_QSFP(port);
             present = onlp_sfpi_is_present(port);
             if(present == 1)
             {
@@ -255,7 +256,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
         case ONLP_SFP_CONTROL_RESET:
             {
-                VALIDATE_QSFP(port);
                 if (onlp_file_write_int(value, MODULE_RESET_FORMAT, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
@@ -268,7 +268,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
         case ONLP_SFP_CONTROL_LP_MODE:
             {
-                VALIDATE_QSFP(port);
                 if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to write lpmode status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
@@ -294,12 +293,13 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
     int tx_dis_val = 0;
     int present = 0;
 
+    VALIDATE_QSFP(port);
+
     switch(control)
         {
         case ONLP_SFP_CONTROL_TX_DISABLE:
         case ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL:
             {
-                VALIDATE_QSFP(port);
                 present = onlp_sfpi_is_present(port);
                 if(present == 1){
                     /* txdis valid bit(bit0-bit3), xxxx 1111 */
@@ -316,7 +316,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
         case ONLP_SFP_CONTROL_RESET: 
             {
-                VALIDATE_QSFP(port);
                 if (onlp_file_read_int(value, MODULE_RESET_FORMAT, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
@@ -329,7 +328,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
         case ONLP_SFP_CONTROL_LP_MODE: 
             {
-                VALIDATE_QSFP(port);
                 if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read lpmode status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
