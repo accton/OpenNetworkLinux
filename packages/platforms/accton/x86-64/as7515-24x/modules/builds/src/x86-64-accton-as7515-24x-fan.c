@@ -613,8 +613,7 @@ static struct as7515_24x_fan_data *as7515_fan_update_device(struct device *dev)
 	return data;
 }
 
-static int as7515_24x_fan_probe(struct i2c_client *client,
-				   const struct i2c_device_id *dev_id)
+static int as7515_24x_fan_probe(struct i2c_client *client)
 {
 	struct as7515_24x_fan_data *data;
 	int status;

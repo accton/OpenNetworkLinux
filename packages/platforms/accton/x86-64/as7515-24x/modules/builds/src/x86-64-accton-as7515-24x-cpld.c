@@ -321,9 +321,9 @@ static void as7515_24x_cpld_remove_client(struct i2c_client *client)
 /*
  * I2C init/probing/exit functions
  */
-static int as7515_24x_cpld_probe(struct i2c_client *client,
-				const struct i2c_device_id *id)
+static int as7515_24x_cpld_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *id = i2c_client_get_device_id(client);
 	struct i2c_adapter *adap = to_i2c_adapter(client->dev.parent);
 	struct as7515_24x_cpld_data *data;
 	int ret = -ENODEV;

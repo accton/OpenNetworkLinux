@@ -46,7 +46,7 @@ static ssize_t show_led(struct device *dev, struct device_attribute *attr,
 extern int as7515_24x_fpga_read(u8 reg);
 extern int as7515_24x_fpga_write(u8 reg, u8 value);
 static int as7515_24x_led_probe(struct platform_device *pdev);
-static int as7515_24x_led_remove(struct platform_device *pdev);
+static void as7515_24x_led_remove(struct platform_device *pdev);
 
 enum led_type {
 	LED_TYPE_FAN,
@@ -406,7 +406,7 @@ exit_sysfs_group:
 	return status;
 }
 
-static int as7515_24x_led_remove(struct platform_device *pdev)
+static void as7515_24x_led_remove(struct platform_device *pdev)
 {
 	struct as7515_24x_led_data *data = platform_get_drvdata(pdev);
 	int i = 0;
@@ -416,8 +416,6 @@ static int as7515_24x_led_remove(struct platform_device *pdev)
 	}
 
 	kfree(data);
-
-	return 0;
 }
 
 static struct platform_device_id as7515_24x_led_id[] = {

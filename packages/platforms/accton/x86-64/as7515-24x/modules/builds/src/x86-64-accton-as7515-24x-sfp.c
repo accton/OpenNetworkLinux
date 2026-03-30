@@ -464,7 +464,7 @@ exit_sysfs_group:
 }
 
 
-static int as7515_sfp_remove(struct platform_device *pdev)
+static void as7515_sfp_remove(struct platform_device *pdev)
 {
 	struct as7515_sfp_data *data = platform_get_drvdata(pdev);
 	int i = 0;
@@ -474,7 +474,6 @@ static int as7515_sfp_remove(struct platform_device *pdev)
 	}
 
 	kfree(data);
-	return 0;
 }
 
 static const struct platform_device_id as7515_sfp_id[] = {
