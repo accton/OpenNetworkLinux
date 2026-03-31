@@ -740,9 +740,9 @@ exit:
 }
 
 
-static int as7535_28xb_cpld_probe(struct i2c_client *client,
-			const struct i2c_device_id *dev_id)
+static int as7535_28xb_cpld_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
 	int status;
 	struct as7535_28xb_cpld_data *data = NULL;
 

@@ -49,7 +49,7 @@ static ssize_t show_psu_info(struct device *dev, struct device_attribute *attr,
 static ssize_t show_string(struct device *dev, struct device_attribute *attr,
 							char *buf);
 static int as7535_28xb_psu_probe(struct platform_device *pdev);
-static int as7535_28xb_psu_remove(struct platform_device *pdev);
+static void as7535_28xb_psu_remove(struct platform_device *pdev);
 
 enum psu_id {
 	PSU_1,
@@ -784,10 +784,9 @@ static int as7535_28xb_psu_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int as7535_28xb_psu_remove(struct platform_device *pdev)
+static void as7535_28xb_psu_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&pdev->dev.kobj, &as7535_28xb_psu_group);
-	return 0;
 }
 
 static int __init as7535_28xb_psu_init(void)

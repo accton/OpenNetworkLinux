@@ -46,7 +46,7 @@
 #define IPMI_CPLD_READ_REG_CMD 0x22
 
 static int as7535_28xb_sys_probe(struct platform_device *pdev);
-static int as7535_28xb_sys_remove(struct platform_device *pdev);
+static void as7535_28xb_sys_remove(struct platform_device *pdev);
 static ssize_t show_version(struct device *dev,
 			struct device_attribute *da, char *buf);
 static ssize_t show_bios_flash_id(struct device *dev,
@@ -418,12 +418,10 @@ exit:
 	return status;
 }
 
-static int as7535_28xb_sys_remove(struct platform_device *pdev)
+static void as7535_28xb_sys_remove(struct platform_device *pdev)
 {
 	sysfs_eeprom_cleanup(&pdev->dev.kobj, &data->eeprom);
 	sysfs_remove_group(&pdev->dev.kobj, &as7535_28xb_sys_group);
-
-	return 0;
 }
 
 static int __init as7535_28xb_sys_init(void)

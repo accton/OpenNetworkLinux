@@ -43,7 +43,7 @@ static ssize_t show_temp(struct device *dev, struct device_attribute *attr,
 static ssize_t set_max(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
 static int as7535_28xb_thermal_probe(struct platform_device *pdev);
-static int as7535_28xb_thermal_remove(struct platform_device *pdev);
+static void as7535_28xb_thermal_remove(struct platform_device *pdev);
 
 static int get_pcb_id(void);
 static int g_pcb_id = 0;
@@ -252,10 +252,9 @@ static int as7535_28xb_thermal_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int as7535_28xb_thermal_remove(struct platform_device *pdev)
+static void as7535_28xb_thermal_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&pdev->dev.kobj, &as7535_28xb_thermal_group);
-	return 0;
 }
 
 static int __init as7535_28xb_thermal_init(void)
