@@ -46,7 +46,7 @@ static ssize_t show_temp(struct device *dev, struct device_attribute *attr,
 static ssize_t set_max(struct device *dev, struct device_attribute *da,
 		       const char *buf, size_t count);
 static int as7926_40xfb_thermal_probe(struct platform_device *pdev);
-static int as7926_40xfb_thermal_remove(struct platform_device *pdev);
+static void as7926_40xfb_thermal_remove(struct platform_device *pdev);
 
 enum temp_data_index {
 	TEMP_ADDR,
@@ -230,11 +230,9 @@ static int as7926_40xfb_thermal_probe(struct platform_device *pdev)
 	return status;
 }
 
-static int as7926_40xfb_thermal_remove(struct platform_device *pdev)
+static void as7926_40xfb_thermal_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&pdev->dev.kobj, &as7926_40xfb_thermal_group);
-
-	return 0;
 }
 
 static int __init as7926_40xfb_thermal_init(void)

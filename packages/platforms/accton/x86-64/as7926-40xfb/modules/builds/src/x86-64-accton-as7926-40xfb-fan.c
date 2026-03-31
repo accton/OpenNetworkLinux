@@ -55,7 +55,7 @@ static ssize_t show_dir(struct device *dev, struct device_attribute *da,
 static ssize_t show_threshold(struct device *dev, struct device_attribute *da,
 			      char *buf);
 static int as7926_40xfb_fan_probe(struct platform_device *pdev);
-static int as7926_40xfb_fan_remove(struct platform_device *pdev);
+static void as7926_40xfb_fan_remove(struct platform_device *pdev);
 
 enum fan_id {
 	FAN_1,
@@ -519,11 +519,9 @@ static int as7926_40xfb_fan_probe(struct platform_device *pdev)
 	return status;
 }
 
-static int as7926_40xfb_fan_remove(struct platform_device *pdev)
+static void as7926_40xfb_fan_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&pdev->dev.kobj, &as7926_40xfb_fan_group);
-
-	return 0;
 }
 
 static int __init as7926_40xfb_fan_init(void)
