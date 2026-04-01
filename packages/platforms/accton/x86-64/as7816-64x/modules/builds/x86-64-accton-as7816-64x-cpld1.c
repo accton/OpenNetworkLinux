@@ -45,9 +45,11 @@ struct cpld_client_node {
 #define I2C_RW_RETRY_COUNT				10
 #define I2C_RW_RETRY_INTERVAL			60 /* ms */
 
-static ssize_t show_psu(struct device *dev, struct device_attribute *da,
+static ssize_t set_control(struct device *dev, struct device_attribute *da,
+		       const char *buf, size_t count);
+static ssize_t show_status(struct device *dev, struct device_attribute *da,
              char *buf);
-static ssize_t show_present(struct device *dev, struct device_attribute *da,
+static ssize_t show_psu(struct device *dev, struct device_attribute *da,
              char *buf);
 static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
              char *buf);
@@ -69,6 +71,7 @@ struct as7816_64x_cpld_data {
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
 
 #define TRANSCEIVER_PRESENT_ATTR_ID(index)   MODULE_PRESENT_##index
+#define TRANSCEIVER_RESET_ATTR_ID(index)   	MODULE_RESET_##index
 #define PSU_PRESENT_ATTR_ID(index)		     PSU##index##_PRESENT
 #define PSU_POWERGOOD_ATTR_ID(index)  	     PSU##index##_POWER_GOOD
 
@@ -142,7 +145,70 @@ enum as7816_64x_cpld_sysfs_attributes {
 	TRANSCEIVER_PRESENT_ATTR_ID(62),
 	TRANSCEIVER_PRESENT_ATTR_ID(63),
 	TRANSCEIVER_PRESENT_ATTR_ID(64),
-
+	TRANSCEIVER_RESET_ATTR_ID(1),
+	TRANSCEIVER_RESET_ATTR_ID(2),
+	TRANSCEIVER_RESET_ATTR_ID(3),
+	TRANSCEIVER_RESET_ATTR_ID(4),
+	TRANSCEIVER_RESET_ATTR_ID(5),
+	TRANSCEIVER_RESET_ATTR_ID(6),
+	TRANSCEIVER_RESET_ATTR_ID(7),
+	TRANSCEIVER_RESET_ATTR_ID(8),
+	TRANSCEIVER_RESET_ATTR_ID(9),
+	TRANSCEIVER_RESET_ATTR_ID(10),
+	TRANSCEIVER_RESET_ATTR_ID(11),
+	TRANSCEIVER_RESET_ATTR_ID(12),
+	TRANSCEIVER_RESET_ATTR_ID(13),
+	TRANSCEIVER_RESET_ATTR_ID(14),
+	TRANSCEIVER_RESET_ATTR_ID(15),
+	TRANSCEIVER_RESET_ATTR_ID(16),
+	TRANSCEIVER_RESET_ATTR_ID(17),
+	TRANSCEIVER_RESET_ATTR_ID(18),
+	TRANSCEIVER_RESET_ATTR_ID(19),
+	TRANSCEIVER_RESET_ATTR_ID(20),
+	TRANSCEIVER_RESET_ATTR_ID(21),
+	TRANSCEIVER_RESET_ATTR_ID(22),
+	TRANSCEIVER_RESET_ATTR_ID(23),
+	TRANSCEIVER_RESET_ATTR_ID(24),
+	TRANSCEIVER_RESET_ATTR_ID(25),
+	TRANSCEIVER_RESET_ATTR_ID(26),
+	TRANSCEIVER_RESET_ATTR_ID(27),
+	TRANSCEIVER_RESET_ATTR_ID(28),
+	TRANSCEIVER_RESET_ATTR_ID(29),
+	TRANSCEIVER_RESET_ATTR_ID(30),
+	TRANSCEIVER_RESET_ATTR_ID(31),
+	TRANSCEIVER_RESET_ATTR_ID(32),
+	TRANSCEIVER_RESET_ATTR_ID(33),
+	TRANSCEIVER_RESET_ATTR_ID(34),
+	TRANSCEIVER_RESET_ATTR_ID(35),
+	TRANSCEIVER_RESET_ATTR_ID(36),
+	TRANSCEIVER_RESET_ATTR_ID(37),
+	TRANSCEIVER_RESET_ATTR_ID(38),
+	TRANSCEIVER_RESET_ATTR_ID(39),
+	TRANSCEIVER_RESET_ATTR_ID(40),
+	TRANSCEIVER_RESET_ATTR_ID(41),
+	TRANSCEIVER_RESET_ATTR_ID(42),
+	TRANSCEIVER_RESET_ATTR_ID(43),
+	TRANSCEIVER_RESET_ATTR_ID(44),
+	TRANSCEIVER_RESET_ATTR_ID(45),
+	TRANSCEIVER_RESET_ATTR_ID(46),
+	TRANSCEIVER_RESET_ATTR_ID(47),
+	TRANSCEIVER_RESET_ATTR_ID(48),
+	TRANSCEIVER_RESET_ATTR_ID(49),
+	TRANSCEIVER_RESET_ATTR_ID(50),
+	TRANSCEIVER_RESET_ATTR_ID(51),
+	TRANSCEIVER_RESET_ATTR_ID(52),
+	TRANSCEIVER_RESET_ATTR_ID(53),
+	TRANSCEIVER_RESET_ATTR_ID(54),
+	TRANSCEIVER_RESET_ATTR_ID(55),
+	TRANSCEIVER_RESET_ATTR_ID(56),
+	TRANSCEIVER_RESET_ATTR_ID(57),
+	TRANSCEIVER_RESET_ATTR_ID(58),
+	TRANSCEIVER_RESET_ATTR_ID(59),
+	TRANSCEIVER_RESET_ATTR_ID(60),
+	TRANSCEIVER_RESET_ATTR_ID(61),
+	TRANSCEIVER_RESET_ATTR_ID(62),
+	TRANSCEIVER_RESET_ATTR_ID(63),
+	TRANSCEIVER_RESET_ATTR_ID(64),
 	/* psu attributes */
     PSU_PRESENT_ATTR_ID(1),
     PSU_PRESENT_ATTR_ID(2),
@@ -155,8 +221,12 @@ enum as7816_64x_cpld_sysfs_attributes {
 
 /* transceiver attributes */
 #define DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
-	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_present, NULL, MODULE_PRESENT_##index)
+	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, NULL, MODULE_PRESENT_##index);
 #define DECLARE_TRANSCEIVER_ATTR(index)  &sensor_dev_attr_module_present_##index.dev_attr.attr
+
+#define DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(index) \
+	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, show_status, set_control, MODULE_RESET_##index);
+#define DECLARE_TRANSCEIVER_RESET_ATTR(index)  &sensor_dev_attr_module_reset_##index.dev_attr.attr
 
 /* psu attributes */
 #define DECLARE_PSU_SENSOR_DEVICE_ATTR(index) \
@@ -236,7 +306,70 @@ DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(61);
 DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(62);
 DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(63);
 DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(64);
-
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(1);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(2);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(3);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(4);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(5);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(6);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(7);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(8);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(9);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(10);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(11);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(12);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(13);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(14);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(15);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(16);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(17);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(18);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(19);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(20);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(21);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(22);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(23);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(24);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(25);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(26);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(27);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(28);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(29);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(30);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(31);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(32);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(33);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(34);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(35);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(36);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(37);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(38);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(39);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(40);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(41);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(42);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(43);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(44);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(45);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(46);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(47);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(48);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(49);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(50);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(51);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(52);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(53);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(54);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(55);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(56);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(57);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(58);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(59);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(60);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(61);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(62);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(63);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(64);
 /* psu attributes*/
 DECLARE_PSU_SENSOR_DEVICE_ATTR(1);
 DECLARE_PSU_SENSOR_DEVICE_ATTR(2);
@@ -311,7 +444,70 @@ static struct attribute *as7816_64x_cpld_attributes[] = {
 	DECLARE_TRANSCEIVER_ATTR(62),
 	DECLARE_TRANSCEIVER_ATTR(63),
 	DECLARE_TRANSCEIVER_ATTR(64),
-
+	DECLARE_TRANSCEIVER_RESET_ATTR(1),
+	DECLARE_TRANSCEIVER_RESET_ATTR(2),
+	DECLARE_TRANSCEIVER_RESET_ATTR(3),
+	DECLARE_TRANSCEIVER_RESET_ATTR(4),
+	DECLARE_TRANSCEIVER_RESET_ATTR(5),
+	DECLARE_TRANSCEIVER_RESET_ATTR(6),
+	DECLARE_TRANSCEIVER_RESET_ATTR(7),
+	DECLARE_TRANSCEIVER_RESET_ATTR(8),
+	DECLARE_TRANSCEIVER_RESET_ATTR(9),
+	DECLARE_TRANSCEIVER_RESET_ATTR(10),
+	DECLARE_TRANSCEIVER_RESET_ATTR(11),
+	DECLARE_TRANSCEIVER_RESET_ATTR(12),
+	DECLARE_TRANSCEIVER_RESET_ATTR(13),
+	DECLARE_TRANSCEIVER_RESET_ATTR(14),
+	DECLARE_TRANSCEIVER_RESET_ATTR(15),
+	DECLARE_TRANSCEIVER_RESET_ATTR(16),
+	DECLARE_TRANSCEIVER_RESET_ATTR(17),
+	DECLARE_TRANSCEIVER_RESET_ATTR(18),
+	DECLARE_TRANSCEIVER_RESET_ATTR(19),
+	DECLARE_TRANSCEIVER_RESET_ATTR(20),
+	DECLARE_TRANSCEIVER_RESET_ATTR(21),
+	DECLARE_TRANSCEIVER_RESET_ATTR(22),
+	DECLARE_TRANSCEIVER_RESET_ATTR(23),
+	DECLARE_TRANSCEIVER_RESET_ATTR(24),
+	DECLARE_TRANSCEIVER_RESET_ATTR(25),
+	DECLARE_TRANSCEIVER_RESET_ATTR(26),
+	DECLARE_TRANSCEIVER_RESET_ATTR(27),
+	DECLARE_TRANSCEIVER_RESET_ATTR(28),
+	DECLARE_TRANSCEIVER_RESET_ATTR(29),
+	DECLARE_TRANSCEIVER_RESET_ATTR(30),
+	DECLARE_TRANSCEIVER_RESET_ATTR(31),
+	DECLARE_TRANSCEIVER_RESET_ATTR(32),
+	DECLARE_TRANSCEIVER_RESET_ATTR(33),
+	DECLARE_TRANSCEIVER_RESET_ATTR(34),
+	DECLARE_TRANSCEIVER_RESET_ATTR(35),
+	DECLARE_TRANSCEIVER_RESET_ATTR(36),
+	DECLARE_TRANSCEIVER_RESET_ATTR(37),
+	DECLARE_TRANSCEIVER_RESET_ATTR(38),
+	DECLARE_TRANSCEIVER_RESET_ATTR(39),
+	DECLARE_TRANSCEIVER_RESET_ATTR(40),
+	DECLARE_TRANSCEIVER_RESET_ATTR(41),
+	DECLARE_TRANSCEIVER_RESET_ATTR(42),
+	DECLARE_TRANSCEIVER_RESET_ATTR(43),
+	DECLARE_TRANSCEIVER_RESET_ATTR(44),
+	DECLARE_TRANSCEIVER_RESET_ATTR(45),
+	DECLARE_TRANSCEIVER_RESET_ATTR(46),
+	DECLARE_TRANSCEIVER_RESET_ATTR(47),
+	DECLARE_TRANSCEIVER_RESET_ATTR(48),
+	DECLARE_TRANSCEIVER_RESET_ATTR(49),
+	DECLARE_TRANSCEIVER_RESET_ATTR(50),
+	DECLARE_TRANSCEIVER_RESET_ATTR(51),
+	DECLARE_TRANSCEIVER_RESET_ATTR(52),
+	DECLARE_TRANSCEIVER_RESET_ATTR(53),
+	DECLARE_TRANSCEIVER_RESET_ATTR(54),
+	DECLARE_TRANSCEIVER_RESET_ATTR(55),
+	DECLARE_TRANSCEIVER_RESET_ATTR(56),
+	DECLARE_TRANSCEIVER_RESET_ATTR(57),
+	DECLARE_TRANSCEIVER_RESET_ATTR(58),
+	DECLARE_TRANSCEIVER_RESET_ATTR(59),
+	DECLARE_TRANSCEIVER_RESET_ATTR(60),
+	DECLARE_TRANSCEIVER_RESET_ATTR(61),
+	DECLARE_TRANSCEIVER_RESET_ATTR(62),
+	DECLARE_TRANSCEIVER_RESET_ATTR(63),
+	DECLARE_TRANSCEIVER_RESET_ATTR(64),
     /* psu attributes*/
 	DECLARE_PSU_ATTR(1),
 	DECLARE_PSU_ATTR(2),
@@ -321,6 +517,207 @@ static struct attribute *as7816_64x_cpld_attributes[] = {
 static const struct attribute_group as7816_64x_cpld_group = {
 	.attrs = as7816_64x_cpld_attributes,
 };
+
+static ssize_t set_control(struct device *dev, struct device_attribute *da,
+		       const char *buf, size_t count)
+{
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct as7816_64x_cpld_data *data = i2c_get_clientdata(client);
+	long value;
+	int status;
+	u8 reg = 0, mask = 0, invert = 0;
+
+	status = kstrtol(buf, 10, &value);
+
+	if (status)
+		return status;
+
+	switch (attr->index) {
+	case MODULE_RESET_1 ... MODULE_RESET_8:
+		reg  = 0x40;
+		mask = 0x1 << (attr->index - MODULE_RESET_1);
+		invert = 1;
+		break;
+	case MODULE_RESET_9 ... MODULE_RESET_16:
+		reg  = 0x41;
+		mask = 0x1 << (attr->index - MODULE_RESET_9);
+		invert = 1;
+		break;
+	case MODULE_RESET_17 ... MODULE_RESET_24:
+		reg  = 0x42;
+		mask = 0x1 << (attr->index - MODULE_RESET_17);
+		invert = 1;
+		break;
+	case MODULE_RESET_25 ... MODULE_RESET_32:
+		reg  = 0x43;
+		mask = 0x1 << (attr->index - MODULE_RESET_25);
+		invert = 1;
+		break;
+	case MODULE_RESET_33 ... MODULE_RESET_40:
+		reg  = 0x44;
+		mask = 0x1 << (attr->index - MODULE_RESET_33);
+		invert = 1;
+		break;
+	case MODULE_RESET_41 ... MODULE_RESET_48:
+		reg  = 0x45;
+		mask = 0x1 << (attr->index - MODULE_RESET_41);
+		invert = 1;
+		break;
+	case MODULE_RESET_49 ... MODULE_RESET_56:
+		reg  = 0x46;
+		mask = 0x1 << (attr->index - MODULE_RESET_49);
+		invert = 1;
+		break;
+	case MODULE_RESET_57 ... MODULE_RESET_64:
+		reg  = 0x47;
+		mask = 0x1 << (attr->index - MODULE_RESET_57);
+		invert = 1;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+    /* Read current status */
+	mutex_lock(&data->update_lock);
+	status = as7816_64x_cpld_read_internal(client, reg);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+
+	/* Update reset status */
+    if (invert) {
+        value = !value;
+	}
+
+	if (value) {
+		status |= mask;
+	}
+	else {
+		status &= ~mask;
+	}
+
+	status = as7816_64x_cpld_write_internal(client, reg, status);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+	
+	mutex_unlock(&data->update_lock);
+	return count;
+
+exit:
+	mutex_unlock(&data->update_lock);
+	return status;
+}
+
+static ssize_t show_status(struct device *dev, struct device_attribute *da,
+             char *buf)
+{
+    struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+    struct i2c_client *client = to_i2c_client(dev);
+    struct as7816_64x_cpld_data *data = i2c_get_clientdata(client);
+	int status = 0;
+	u8 reg = 0, mask = 0, invert = 0;
+
+	switch (attr->index) {
+		case MODULE_PRESENT_1 ... MODULE_PRESENT_8:
+			reg  = 0x70;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_1);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_9 ... MODULE_PRESENT_16:
+			reg  = 0x71;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_9);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_17 ... MODULE_PRESENT_24:
+			reg  = 0x72;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_17);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_25 ... MODULE_PRESENT_32:
+			reg  = 0x73;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_25);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_33 ... MODULE_PRESENT_40:
+			reg  = 0x74;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_33);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_41 ... MODULE_PRESENT_48:
+			reg  = 0x75;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_41);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_49 ... MODULE_PRESENT_56:
+			reg  = 0x76;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_49);
+			invert = 1;
+			break;
+		case MODULE_PRESENT_57 ... MODULE_PRESENT_64:
+			reg  = 0x77;
+			mask = 0x1 << (attr->index - MODULE_PRESENT_57);
+			invert = 1;
+			break;
+		case MODULE_RESET_1 ... MODULE_RESET_8:
+			reg  = 0x40;
+			mask = 0x1 << (attr->index - MODULE_RESET_1);
+			invert = 1;
+			break;
+		case MODULE_RESET_9 ... MODULE_RESET_16:
+			reg  = 0x41;
+			mask = 0x1 << (attr->index - MODULE_RESET_9);
+			invert = 1;
+			break;
+		case MODULE_RESET_17 ... MODULE_RESET_24:
+			reg  = 0x42;
+			mask = 0x1 << (attr->index - MODULE_RESET_17);
+			invert = 1;
+			break;
+		case MODULE_RESET_25 ... MODULE_RESET_32:
+			reg  = 0x43;
+			mask = 0x1 << (attr->index - MODULE_RESET_25);
+			invert = 1;
+			break;
+		case MODULE_RESET_33 ... MODULE_RESET_40:
+			reg  = 0x44;
+			mask = 0x1 << (attr->index - MODULE_RESET_33);
+			invert = 1;
+			break;
+		case MODULE_RESET_41 ... MODULE_RESET_48:
+			reg  = 0x45;
+			mask = 0x1 << (attr->index - MODULE_RESET_41);
+			invert = 1;
+			break;
+		case MODULE_RESET_49 ... MODULE_RESET_56:
+			reg  = 0x46;
+			mask = 0x1 << (attr->index - MODULE_RESET_49);
+			invert = 1;
+			break;
+		case MODULE_RESET_57 ... MODULE_RESET_64:
+			reg  = 0x47;
+			mask = 0x1 << (attr->index - MODULE_RESET_57);
+			invert = 1;
+			break;
+	default:
+		return 0;
+	}
+
+    mutex_lock(&data->update_lock);
+	status = as7816_64x_cpld_read_internal(client, reg);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+	mutex_unlock(&data->update_lock);
+
+	return sprintf(buf, "%d\n", invert ? !(status & mask) : !!(status & mask));
+
+exit:
+	mutex_unlock(&data->update_lock);
+	return status;
+}
 
 static ssize_t show_psu(struct device *dev, struct device_attribute *da,
              char *buf)
@@ -385,67 +782,6 @@ static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
     return sprintf(buf, "%.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x\n",
                    values[0], values[1], values[2], values[3],
                    values[4], values[5], values[6], values[7]);
-
-exit:
-	mutex_unlock(&data->update_lock);
-	return status;
-}
-
-static ssize_t show_present(struct device *dev, struct device_attribute *da,
-             char *buf)
-{
-    struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-    struct i2c_client *client = to_i2c_client(dev);
-    struct as7816_64x_cpld_data *data = i2c_get_clientdata(client);
-	int status = 0;
-	u8 reg = 0, mask = 0;
-
-	switch (attr->index) {
-	case MODULE_PRESENT_1 ... MODULE_PRESENT_8:
-		reg  = 0x70;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_1);
-		break;
-	case MODULE_PRESENT_9 ... MODULE_PRESENT_16:
-		reg  = 0x71;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_9);
-		break;
-	case MODULE_PRESENT_17 ... MODULE_PRESENT_24:
-		reg  = 0x72;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_17);
-		break;
-	case MODULE_PRESENT_25 ... MODULE_PRESENT_32:
-		reg  = 0x73;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_25);
-		break;
-	case MODULE_PRESENT_33 ... MODULE_PRESENT_40:
-		reg  = 0x74;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_33);
-		break;
-	case MODULE_PRESENT_41 ... MODULE_PRESENT_48:
-		reg  = 0x75;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_41);
-		break;
-	case MODULE_PRESENT_49 ... MODULE_PRESENT_56:
-		reg  = 0x76;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_49);
-		break;
-	case MODULE_PRESENT_57 ... MODULE_PRESENT_64:
-		reg  = 0x77;
-		mask = 0x1 << (attr->index - MODULE_PRESENT_57);
-		break;
-	default:
-		return 0;
-	}
-
-
-    mutex_lock(&data->update_lock);
-	status = as7816_64x_cpld_read_internal(client, reg);
-	if (unlikely(status < 0)) {
-		goto exit;
-	}
-	mutex_unlock(&data->update_lock);
-
-	return sprintf(buf, "%d\n", !(status & mask));
 
 exit:
 	mutex_unlock(&data->update_lock);
