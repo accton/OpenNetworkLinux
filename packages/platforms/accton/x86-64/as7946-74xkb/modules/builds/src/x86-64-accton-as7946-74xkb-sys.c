@@ -48,7 +48,7 @@
 #define FAN_CPLD_ADDR           0x68
 
 static int as7946_74xkb_sys_probe(struct platform_device *pdev);
-static int as7946_74xkb_sys_remove(struct platform_device *pdev);
+static void as7946_74xkb_sys_remove(struct platform_device *pdev);
 static ssize_t show_cpld_version(struct device *dev, 
 			struct device_attribute *da, char *buf);
 static ssize_t show_bios_flash_id(struct device *dev, 
@@ -422,12 +422,10 @@ exit:
 	return status;
 }
 
-static int as7946_74xkb_sys_remove(struct platform_device *pdev)
+static void as7946_74xkb_sys_remove(struct platform_device *pdev)
 {
 	sysfs_eeprom_cleanup(&pdev->dev.kobj, &data->eeprom);
 	sysfs_remove_group(&pdev->dev.kobj, &as7946_74xkb_sys_group);
-
-	return 0;
 }
 
 static int __init as7946_74xkb_sys_init(void)

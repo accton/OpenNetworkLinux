@@ -44,7 +44,7 @@ static ssize_t show_psu(struct device *dev, struct device_attribute *attr,
 static ssize_t show_string(struct device *dev, struct device_attribute *attr,
 							char *buf);
 static int as7946_74xkb_psu_probe(struct platform_device *pdev);
-static int as7946_74xkb_psu_remove(struct platform_device *pdev);
+static void as7946_74xkb_psu_remove(struct platform_device *pdev);
 
 enum psu_id {
 	PSU_1,
@@ -462,10 +462,9 @@ exit:
 	return status;
 }
 
-static int as7946_74xkb_psu_remove(struct platform_device *pdev)
+static void as7946_74xkb_psu_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&pdev->dev.kobj, &as7946_74xkb_psu_group);
-	return 0;
 }
 
 static int __init as7946_74xkb_psu_init(void)
