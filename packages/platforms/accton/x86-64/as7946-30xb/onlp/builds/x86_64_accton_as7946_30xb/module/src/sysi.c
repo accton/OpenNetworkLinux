@@ -109,7 +109,7 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
     int bmc_major = 0, bmc_minor = 0;
     unsigned int bmc_aux[4] = {0};
     char bmc_ver[16] = ""; 
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char *bios_ver = NULL;
 
     for (i = 0; i < AIM_ARRAYSIZE(cpld_ver_path); i++) {

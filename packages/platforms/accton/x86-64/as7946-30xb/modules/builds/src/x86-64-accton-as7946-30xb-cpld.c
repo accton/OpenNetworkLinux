@@ -814,9 +814,9 @@ static const struct hwmon_chip_info as7946_30xb_cpld_chip_info = {
 	.info = as7946_30xb_cpld_info,
 };
 
-static int as7946_30xb_cpld_probe(struct i2c_client *client,
-			const struct i2c_device_id *dev_id)
+static int as7946_30xb_cpld_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
 	int status;
 	struct as7946_30xb_cpld_data *data = NULL;
 
