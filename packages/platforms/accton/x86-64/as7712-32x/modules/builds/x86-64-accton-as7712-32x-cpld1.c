@@ -45,7 +45,9 @@ struct cpld_client_node {
 #define I2C_RW_RETRY_COUNT				10
 #define I2C_RW_RETRY_INTERVAL			60 /* ms */
 
-static ssize_t show_present(struct device *dev, struct device_attribute *da,
+#define MAC_PCIE_RESET_DELAY			200 /* ms */
+
+static ssize_t show_status(struct device *dev, struct device_attribute *da,
              char *buf);
 static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
              char *buf);
@@ -53,6 +55,8 @@ static ssize_t access(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
 static ssize_t show_version(struct device *dev, struct device_attribute *da,
              char *buf);
+static ssize_t set_control(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count);
 static int as7712_32x_cpld_read_internal(struct i2c_client *client, u8 reg);
 static int as7712_32x_cpld_write_internal(struct i2c_client *client, u8 reg, u8 value);
 
@@ -66,6 +70,7 @@ struct as7712_32x_cpld_data {
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
 
 #define TRANSCEIVER_PRESENT_ATTR_ID(index)   MODULE_PRESENT_##index
+#define TRANSCEIVER_RESET_ATTR_ID(index)     MODULE_RESET_##index
 
 enum as7712_32x_cpld_sysfs_attributes {
 	CPLD_VERSION,
@@ -104,6 +109,38 @@ enum as7712_32x_cpld_sysfs_attributes {
 	TRANSCEIVER_PRESENT_ATTR_ID(30),
 	TRANSCEIVER_PRESENT_ATTR_ID(31),
 	TRANSCEIVER_PRESENT_ATTR_ID(32),
+	TRANSCEIVER_RESET_ATTR_ID(1),
+	TRANSCEIVER_RESET_ATTR_ID(2),
+	TRANSCEIVER_RESET_ATTR_ID(3),
+	TRANSCEIVER_RESET_ATTR_ID(4),
+	TRANSCEIVER_RESET_ATTR_ID(5),
+	TRANSCEIVER_RESET_ATTR_ID(6),
+	TRANSCEIVER_RESET_ATTR_ID(7),
+	TRANSCEIVER_RESET_ATTR_ID(8),
+	TRANSCEIVER_RESET_ATTR_ID(9),
+	TRANSCEIVER_RESET_ATTR_ID(10),
+	TRANSCEIVER_RESET_ATTR_ID(11),
+	TRANSCEIVER_RESET_ATTR_ID(12),
+	TRANSCEIVER_RESET_ATTR_ID(13),
+	TRANSCEIVER_RESET_ATTR_ID(14),
+	TRANSCEIVER_RESET_ATTR_ID(15),
+	TRANSCEIVER_RESET_ATTR_ID(16),
+	TRANSCEIVER_RESET_ATTR_ID(17),
+	TRANSCEIVER_RESET_ATTR_ID(18),
+	TRANSCEIVER_RESET_ATTR_ID(19),
+	TRANSCEIVER_RESET_ATTR_ID(20),
+	TRANSCEIVER_RESET_ATTR_ID(21),
+	TRANSCEIVER_RESET_ATTR_ID(22),
+	TRANSCEIVER_RESET_ATTR_ID(23),
+	TRANSCEIVER_RESET_ATTR_ID(24),
+	TRANSCEIVER_RESET_ATTR_ID(25),
+	TRANSCEIVER_RESET_ATTR_ID(26),
+	TRANSCEIVER_RESET_ATTR_ID(27),
+	TRANSCEIVER_RESET_ATTR_ID(28),
+	TRANSCEIVER_RESET_ATTR_ID(29),
+	TRANSCEIVER_RESET_ATTR_ID(30),
+	TRANSCEIVER_RESET_ATTR_ID(31),
+	TRANSCEIVER_RESET_ATTR_ID(32),
 };
 
 /* sysfs attributes for hwmon 
@@ -111,8 +148,13 @@ enum as7712_32x_cpld_sysfs_attributes {
 
 /* transceiver attributes */
 #define DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
-	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_present, NULL, MODULE_PRESENT_##index)
+	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, NULL, MODULE_PRESENT_##index)
 #define DECLARE_TRANSCEIVER_ATTR(index)  &sensor_dev_attr_module_present_##index.dev_attr.attr
+
+#define DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
+	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, show_status, set_control, MODULE_RESET_##index);
+#define DECLARE_QSFP_TRANSCEIVER_ATTR(index)  \
+	&sensor_dev_attr_module_reset_##index.dev_attr.attr
 
 static SENSOR_DEVICE_ATTR(version, S_IRUGO, show_version, NULL, CPLD_VERSION);
 static SENSOR_DEVICE_ATTR(access, S_IWUSR, NULL, access, ACCESS);
@@ -150,6 +192,38 @@ DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(29);
 DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(30);
 DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(31);
 DECLARE_TRANSCEIVER_SENSOR_DEVICE_ATTR(32);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(1);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(2);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(3);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(4);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(5);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(6);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(7);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(8);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(9);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(10);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(11);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(12);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(13);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(14);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(15);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(16);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(17);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(18);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(19);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(20);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(21);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(22);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(23);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(24);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(25);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(26);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(27);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(28);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(29);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(30);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(31);
+DECLARE_QSFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(32);
 
 static struct attribute *as7712_32x_cpld_attributes[] = {
     &sensor_dev_attr_version.dev_attr.attr,
@@ -188,6 +262,38 @@ static struct attribute *as7712_32x_cpld_attributes[] = {
 	DECLARE_TRANSCEIVER_ATTR(30),
 	DECLARE_TRANSCEIVER_ATTR(31),
 	DECLARE_TRANSCEIVER_ATTR(32),
+    DECLARE_QSFP_TRANSCEIVER_ATTR(1),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(2),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(3),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(4),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(5),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(6),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(7),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(8),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(9),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(10),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(11),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(12),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(13),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(14),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(15),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(16),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(17),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(18),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(19),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(20),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(21),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(22),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(23),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(24),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(25),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(26),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(27),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(28),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(29),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(30),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(31),
+	DECLARE_QSFP_TRANSCEIVER_ATTR(32),
 	NULL
 };
 
@@ -228,32 +334,56 @@ exit:
 	return status;
 }
 
-static ssize_t show_present(struct device *dev, struct device_attribute *da,
+static ssize_t show_status(struct device *dev, struct device_attribute *da,
              char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct i2c_client *client = to_i2c_client(dev);
     struct as7712_32x_cpld_data *data = i2c_get_clientdata(client);
 	int status = 0;
-	u8 reg = 0, mask = 0;
+	u8 reg = 0, mask = 0, invert = 0;
 
 	switch (attr->index) {
 	case MODULE_PRESENT_1 ... MODULE_PRESENT_8:
 		reg  = 0x30;
 		mask = 0x1 << (attr->index - MODULE_PRESENT_1);
+		invert = 1;
 		break;
 	case MODULE_PRESENT_9 ... MODULE_PRESENT_16:
 		reg  = 0x31;
 		mask = 0x1 << (attr->index - MODULE_PRESENT_9);
+		invert = 1;
 		break;
 	case MODULE_PRESENT_17 ... MODULE_PRESENT_24:
 		reg  = 0x32;
 		mask = 0x1 << (attr->index - MODULE_PRESENT_17);
+		invert = 1;
 		break;
 	case MODULE_PRESENT_25 ... MODULE_PRESENT_32:
 		reg  = 0x33;
 		mask = 0x1 << (attr->index - MODULE_PRESENT_25);
+		invert = 1;
 		break;
+	case MODULE_RESET_1 ... MODULE_RESET_8:
+		reg  = 0x4;
+		mask = 0x1 << (attr->index - MODULE_RESET_1);
+		invert = 1;
+		break;
+	case MODULE_RESET_9 ... MODULE_RESET_16:
+		reg  = 0x5;
+		mask = 0x1 << (attr->index - MODULE_RESET_9);
+		invert = 1;
+		break;
+	case MODULE_RESET_17 ... MODULE_RESET_24:
+		reg  = 0x6;
+		mask = 0x1 << (attr->index - MODULE_RESET_17);
+		invert = 1;
+		break;
+	case MODULE_RESET_25 ... MODULE_RESET_32:
+		reg  = 0x7;
+		mask = 0x1 << (attr->index - MODULE_RESET_25);
+		invert = 1;
+	    break;
 	default:
 		return 0;
 	}
@@ -266,7 +396,7 @@ static ssize_t show_present(struct device *dev, struct device_attribute *da,
 	}
 	mutex_unlock(&data->update_lock);
 
-	return sprintf(buf, "%d\n", !(status & mask));
+	return sprintf(buf, "%d\n", invert ? !(status & mask) : !!(status & mask));
 
 exit:
 	mutex_unlock(&data->update_lock);
@@ -304,6 +434,80 @@ exit:
 	return status;
 }
 
+static ssize_t set_control(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count)
+{
+
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct as7712_32x_cpld_data *data = i2c_get_clientdata(client);
+	long value;
+	int status;
+    u8 reg = 0, mask = 0, invert = 0;
+     
+	status = kstrtol(buf, 10, &value);
+	if (status) {
+		return status;
+	}
+
+	switch (attr->index) {
+	case MODULE_RESET_1 ... MODULE_RESET_8:
+		reg  = 0x4;
+		mask = 0x1 << (attr->index - MODULE_RESET_1);
+		invert = 1;
+		break;
+	case MODULE_RESET_9 ... MODULE_RESET_16:
+		reg  = 0x5;
+		mask = 0x1 << (attr->index - MODULE_RESET_9);
+		invert = 1;
+		break;
+	case MODULE_RESET_17 ... MODULE_RESET_24:
+		reg  = 0x6;
+		mask = 0x1 << (attr->index - MODULE_RESET_17);
+		invert = 1;
+		break;
+	case MODULE_RESET_25 ... MODULE_RESET_32:
+		reg  = 0x7;
+		mask = 0x1 << (attr->index - MODULE_RESET_25);
+		invert = 1;
+	    break;
+
+	default:
+		return 0;
+	}
+
+    /* Read current status */
+    mutex_lock(&data->update_lock);
+	status = as7712_32x_cpld_read_internal(client, reg);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+
+	/* Update tx_disable/reset status */
+    if (invert) {
+        value = !value;
+	}
+
+	/* Update tx_disable/reset status */
+	if (value) {
+		status |= mask;
+	}
+	else {
+		status &= ~mask;
+	}
+
+    status = as7712_32x_cpld_write_internal(client, reg, status);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+    
+    mutex_unlock(&data->update_lock);
+    return count;
+
+exit:
+	mutex_unlock(&data->update_lock);
+	return status;
+}
 static ssize_t access(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count)
 {
