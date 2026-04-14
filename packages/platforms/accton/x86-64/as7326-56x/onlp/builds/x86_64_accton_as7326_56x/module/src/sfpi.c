@@ -74,8 +74,8 @@
 #define QSFP_EEPROM_OFFSET_TXDIS        0x56
 #define QSFP_EEPROM_OFFSET_LPMODE       0x5D
 
-/*QSFP28 Specific*/
-#define QSFP28_LPMODE 0x3
+/*QSFP Specific*/
+#define QSFP_LPMODE 0x3
 const int sfp_map[] =  {
         42,41,44,43,47,45,46,50,
         48,49,52,51,53,56,55,54,
@@ -363,6 +363,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 }
                 else
                 {
+                    AIM_LOG_ERROR("Unable to set tx_disabled status from port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
 
@@ -390,9 +391,9 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                     /* lpmode valid bit(bit0):set LP/txdis mode bit(bit1):set low/high power mode */
                     lpmode_value = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_LPMODE);
                     if(value){
-                        lpmode_value |= QSFP28_LPMODE;
+                        lpmode_value |= QSFP_LPMODE;
                     } else{
-                        lpmode_value &= ~QSFP28_LPMODE;
+                        lpmode_value &= ~QSFP_LPMODE;
                     }
 
                     onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_LPMODE, lpmode_value);
@@ -401,6 +402,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 }
                 else
                 {
+                    AIM_LOG_ERROR("Unable to set LP mode status from port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
@@ -485,6 +487,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 }
                 else
                 {
+                    AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
@@ -510,11 +513,12 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 if (present == 1) {
                     /* lpmode valid bit(bit0):set LP/txdis mode bit(bit1):set low/high power mode */
                     lpmode_value = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_LPMODE);
-                    *value = ((lpmode_value & QSFP28_LPMODE) == QSFP28_LPMODE);
+                    *value = ((lpmode_value & QSFP_LPMODE) == QSFP_LPMODE);
                     rv = ONLP_STATUS_OK;
                 }
                 else
                 {
+                    AIM_LOG_ERROR("Unable to read LP mode status from port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;

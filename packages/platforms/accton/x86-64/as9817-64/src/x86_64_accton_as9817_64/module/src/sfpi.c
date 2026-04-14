@@ -76,29 +76,31 @@ static const int port_bus_index[NUM_OF_SFP_PORT] = {
 /* QSFP device address of eeprom */
 #define PORT_EEPROM_DEVADDR 0x50
 
-/* QSFP eeprom offsets*/
+/*QSFP identify offsets*/
 #define QSFP_EEPROM_OFFSET_IDENTIFIER 0x0
+
+/* QSFP eeprom offsets*/
 #define QSFP_EEPROM_OFFSET_TXDIS 0x56
-#define QSFP_EEPROM_OFFSET_BANK_SELECT 0x7E
-#define QSFP_EEPROM_OFFSET_PAGE_SELECT 0x7F
+
+/* QSFP DD eeprom offsets*/
+#define QSFP_DD_EEPROM_OFFSET_BANK_SELECT 0x7E
+#define QSFP_DD_EEPROM_OFFSET_PAGE_SELECT 0x7F
+#define QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX 0x82
+#define QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1 0x9B
 
 /* QSFP DD Specific*/
-#define QSFP_DD_IDENTIFIER 0x18
 #define QSFP_DD_PAGE_ADMIN_INFO 0x0
 #define QSFP_DD_PAGE_ADVERTISING 0x1
 #define QSFP_DD_PAGE_LANE_CTRL 0x10
-#define QSFP_DD_P01H_OFFSET_CONTROL_1 0x9B
 #define QSFP_DD_P01H_TX_DISABLE_SUPPORT 0x2
-#define QSFP_DD_P10H_OFFSET_OUTPUT_DISABLE_TX 0x82
 
-/* OSFP Specific*/
+
+/* OSFP IDENTIFIER Specific*/
+#define QSFP_28_IDENTIFIER 0x11
+#define QSFP_PLUS_IDENTIFIER 0x0d
+#define QSFP_DD_IDENTIFIER 0x18
 #define OSFP_IDENTIFIER 0x19
 
-/*QSFP28 Specific*/
-#define QSFP_28_IDENTIFIER 0x11
-
-/*QSFP+ Specific*/
-#define QSFP_PLUS_IDENTIFIER 0x0d
 
 /************************************************************
  *
@@ -251,18 +253,18 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                     switch(identifier) {
                         case QSFP_DD_IDENTIFIER: //for as9817-64D
                         case OSFP_IDENTIFIER: { //for as9817-64O
-                            onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING);
-                            if (onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_P01H_OFFSET_CONTROL_1) & QSFP_DD_P01H_TX_DISABLE_SUPPORT){
+                            onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING);
+                            if (onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1) & QSFP_DD_P01H_TX_DISABLE_SUPPORT){
 
-                                onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0);
-                                onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL);
-                                onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_P10H_OFFSET_OUTPUT_DISABLE_TX, value);
+                                onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0);
+                                onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL);
+                                onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX, value);
 
                             } else {
                                 AIM_LOG_ERROR("Setting tx disable to port(%d) is not supported\r\n", port);
                                 return ONLP_STATUS_E_INTERNAL;
                             }
-                            onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO);
+                            onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO);
                             break;
                         }
                         case QSFP_28_IDENTIFIER: //for as9817-64D
@@ -281,6 +283,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 return ONLP_STATUS_OK;
             }             
             else {
+                AIM_LOG_ERROR("Unable to set tx_disabled status from port(%d): module is not present\r\n", port);
                 return ONLP_STATUS_E_INTERNAL;
             }
                     
@@ -299,7 +302,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
             VALIDATE_QSFP(port);
 
             if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT, port) < 0) {
-                AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", port);
+                AIM_LOG_ERROR("Unable to set LP mode status from port(%d): module is not present\r\n", port);
                 return ONLP_STATUS_E_INTERNAL;
             }
 
@@ -361,11 +364,11 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 switch(identifier) {
                     case QSFP_DD_IDENTIFIER: //for as9817-64D
                     case OSFP_IDENTIFIER: { //for as9817-64O
-                        onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0);
-                        onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL);
-                        *value = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_P10H_OFFSET_OUTPUT_DISABLE_TX);
+                        onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0);
+                        onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL);
+                        *value = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX);
                         
-                        onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO);
+                        onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO);
                         break;
                     }
                     case QSFP_28_IDENTIFIER: //for as9817-64D
@@ -380,6 +383,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
             }
         }
         else {
+            AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d): module is not present\r\n", port);
             return ONLP_STATUS_E_INTERNAL;
         }
 
@@ -399,7 +403,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
         VALIDATE_QSFP(port);
 
         if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT, port) < 0) {
-            AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", port);
+            AIM_LOG_ERROR("Unable to read LP mode status from port(%d)\r\n", port);
             return ONLP_STATUS_E_INTERNAL;
         }
 
