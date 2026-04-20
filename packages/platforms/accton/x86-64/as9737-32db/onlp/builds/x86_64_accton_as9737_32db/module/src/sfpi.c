@@ -389,10 +389,10 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 		return ONLP_STATUS_OK;
 	}
 	default:
-		break;
+		return ONLP_STATUS_E_UNSUPPORTED;
 	}
 
-	return ONLP_STATUS_E_UNSUPPORTED;
+	return ONLP_STATUS_E_INTERNAL;
 }
 
 int
@@ -530,10 +530,10 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 		return ONLP_STATUS_OK;
 	}
 	default:
-		break;
+		return ONLP_STATUS_E_UNSUPPORTED;
 	}
 
-	return ONLP_STATUS_E_UNSUPPORTED;
+	return ONLP_STATUS_E_INTERNAL;
 }
 
 int
