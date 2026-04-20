@@ -45,8 +45,6 @@ struct cpld_client_node {
 #define I2C_RW_RETRY_COUNT				10
 #define I2C_RW_RETRY_INTERVAL			60 /* ms */
 
-#define MAC_PCIE_RESET_DELAY			200 /* ms */
-
 static ssize_t show_status(struct device *dev, struct device_attribute *da,
              char *buf);
 static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
