@@ -438,7 +438,7 @@ onlp_sfpi_dev_writew(int port, uint8_t devaddr, uint8_t addr, uint16_t value)
 int
 onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 {
-    int rv = ONLP_STATUS_OK;
+    int rv = ONLP_STATUS_E_INTERNAL;
     int present = 0;
 
     VALIDATE_PORT(port);
@@ -458,6 +458,9 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                             AIM_LOG_ERROR("Unable to write tx_disable status to port(%d)\r\n", port);
                             rv = ONLP_STATUS_E_INTERNAL;
                         }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
                     }
                     else { //QSFP
 
@@ -466,6 +469,9 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                         if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS, value) < 0) {
                             AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write eeprom fail\r\n", port);
                             rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
                         }
                     }
                 }
@@ -483,6 +489,9 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                     AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
+                else {
+                    rv = ONLP_STATUS_OK;
+                }
                 break;
             }
 
@@ -492,6 +501,9 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to write LP mode status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else {
+                    rv = ONLP_STATUS_OK;
                 }
                 break;
             }
@@ -507,7 +519,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 int
 onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 {
-    int rv = ONLP_STATUS_OK;
+    int rv = ONLP_STATUS_E_INTERNAL;
     int present = 0;
     int tx_disable;
 
@@ -524,6 +536,9 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                     AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
+                else {
+                    rv = ONLP_STATUS_OK;
+                }
                 break;
             }
 
@@ -533,6 +548,9 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
             	if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else {
+                    rv = ONLP_STATUS_OK;
                 }
                 break;
             }
@@ -547,6 +565,9 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                             AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
                             rv = ONLP_STATUS_E_INTERNAL;
                         }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
                     }
                     else { //QSFP
                         /* txdis valid bit(bit0-bit3), xxxx 1111 */
@@ -558,6 +579,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                         } 
                         else {
                             *value = tx_disable;
+                            rv = ONLP_STATUS_OK;
                         }
                     }
                 }
@@ -575,6 +597,9 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                     AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
+                else {
+                    rv = ONLP_STATUS_OK;
+                }
                 break;
             }
 
@@ -584,6 +609,9 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read LP mode status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else {
+                    rv = ONLP_STATUS_OK;
                 }
                 break;
             }
