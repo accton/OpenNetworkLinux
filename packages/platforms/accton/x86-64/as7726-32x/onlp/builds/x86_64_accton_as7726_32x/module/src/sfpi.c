@@ -29,6 +29,32 @@
 #include "x86_64_accton_as7726_32x_int.h"
 #include "x86_64_accton_as7726_32x_log.h"
 
+
+#define SFP_PORT_MIN 32
+#define SFP_PORT_MAX 33
+#define QSFP_PORT_MIN 0
+#define QSFP_PORT_MAX 31
+#define MIN_PORT QSFP_PORT_MIN
+#define MAX_PORT SFP_PORT_MAX
+
+#define VALIDATE_SFP(_port) \
+    do { \
+        if (_port < SFP_PORT_MIN || _port > SFP_PORT_MAX) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
+
+#define VALIDATE_QSFP(_port) \
+    do { \
+        if (_port < QSFP_PORT_MIN || _port > QSFP_PORT_MAX ) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
+
+#define VALIDATE_PORT(_port) \
+    do { \
+        if (_port < MIN_PORT || _port > MAX_PORT ) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
+
 #define PORT_BUS_INDEX(port) (port+18)
 
 #define PORT_EEPROM_FORMAT              "/sys/bus/i2c/devices/%d-0050/eeprom"
@@ -36,9 +62,19 @@
 #define MODULE_RXLOS_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_rx_los_%d"
 #define MODULE_TXFAULT_FORMAT           "/sys/bus/i2c/devices/%d-00%d/module_tx_fault_%d"
 #define MODULE_TXDISABLE_FORMAT         "/sys/bus/i2c/devices/%d-00%d/module_tx_disable_%d"
+#define MODULE_RESET_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_reset_%d"
 #define MODULE_PRESENT_ALL_ATTR	        "/sys/bus/i2c/devices/%d-00%d/module_present_all"
 #define MODULE_RXLOS_ALL_ATTR_CPLD	    "/sys/bus/i2c/devices/11-0060/module_rx_los_all"
 #define MODULE_RXLOS_ALL_ATTR_CPLD3	    "/sys/bus/i2c/devices/6-0064/module_rx_los_all"
+/* QSFP device address of eeprom */
+#define PORT_EEPROM_DEVADDR             0x50
+/* QSFP tx disable offset */
+#define QSFP_EEPROM_OFFSET_TXDIS        0x56
+/* QSFP lpmode offset */
+#define QSFP_EEPROM_OFFSET_LPMODE       0x5D
+
+/*QSFP Specific*/
+#define QSFP_LPMODE 0x3
 
 
 int sfp_map_bus[] ={21, 22, 23, 24, 26, 25, 28, 27,
@@ -276,25 +312,95 @@ onlp_sfpi_dev_writew(int port, uint8_t devaddr, uint8_t addr, uint16_t value)
 int
 onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 {
-    int rv;
+    int rv = ONLP_STATUS_E_INTERNAL;
     int addr = 60;
     int bus  = 11;
+    int present = 0;
+    int lpmode_value = 0;
+
+    VALIDATE_PORT(port);
 
     switch(control)
         {
         case ONLP_SFP_CONTROL_TX_DISABLE:
             {
-                if(port==32 || port==33) {
-                    if (onlp_file_write_int(0, MODULE_TXDISABLE_FORMAT, bus, addr, (port+1)) < 0) {
-                        AIM_LOG_ERROR("Unable to set tx_disable status to port(%d)\r\n", port);
+                present = onlp_sfpi_is_present(port);
+                /* write qsfp eeprom data of tx disable if qsfp present */
+                if(present == 1)
+                {
+                    if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX)
+                    {
+                        /* txdis valid bit(bit0-bit3), xxxx 1111 */
+                        value = value & 0xf;
+                        if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS, value) < 0) {
+                            AIM_LOG_ERROR("Unable to write tx_disable status to port(%d)\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
+                    }
+                    else
+                    {
+                        if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, bus, addr, (port+1)) < 0) {
+                            AIM_LOG_ERROR("Unable to write tx_disable status to port(%d)\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
+                    }
+                }
+                else
+                {
+                    rv = ONLP_STATUS_E_INTERNAL;
+                }
+                break;
+            }
+
+        case ONLP_SFP_CONTROL_RESET: 
+            {
+                VALIDATE_QSFP(port);
+                if (onlp_file_write_int(value, MODULE_RESET_FORMAT, bus, addr, (port+1)) < 0) {
+                    AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", port);
+                    rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else { 
+                    rv = ONLP_STATUS_OK;
+                }
+                break;
+            }
+
+        case ONLP_SFP_CONTROL_LP_MODE:
+            {
+                VALIDATE_QSFP(port);
+                present = onlp_sfpi_is_present(port);
+                if (present == 1) {
+                    /* lpmode valid bit(bit0):set LP/txdis mode bit(bit1):set low/high power mode */
+                    lpmode_value = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_LPMODE);
+                    if(lpmode_value < 0){
+                        AIM_LOG_ERROR("Unable to write LP mode status to port(%d):read LP mode value fail\r\n", port);
                         rv = ONLP_STATUS_E_INTERNAL;
                     }
                     else {
-                        rv = ONLP_STATUS_OK;
+                        if(value){
+                            lpmode_value |= QSFP_LPMODE;
+                        } else{
+                            lpmode_value &= ~QSFP_LPMODE;
+                        }
+
+                        if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_LPMODE, lpmode_value) < 0){
+                            AIM_LOG_ERROR("Unable to write LP mode status to port(%d):write eeprom fail\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
                     }
                 }
-                else {
-                    rv = ONLP_STATUS_E_UNSUPPORTED;
+                else
+                {
+                    rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
             }
@@ -310,59 +416,111 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 int
 onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 {
-    int rv;
+    int rv = ONLP_STATUS_E_INTERNAL;
     int addr = 60;
     int bus  = 11;
+    int present = 0;
+    int tx_dis = 0;
+    int lpmode_value = 0;
+
+    VALIDATE_PORT(port);
 
     switch(control)
         {
         case ONLP_SFP_CONTROL_RX_LOS:
             {
-                if(port==32 || port==33) {
-            	    if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT, bus, addr, (port+1)) < 0) {
-                        AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n", port);
-                        rv = ONLP_STATUS_E_INTERNAL;
-                    }
-                    else {
-                        rv = ONLP_STATUS_OK;
-                    }
+                VALIDATE_SFP(port);
+                if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT, bus, addr, (port+1)) < 0) {
+                    AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n", port);
+                    rv = ONLP_STATUS_E_INTERNAL;
                 }
                 else {
-                    rv = ONLP_STATUS_E_UNSUPPORTED;
+                    rv = ONLP_STATUS_OK;
                 }
                 break;
             }
 
         case ONLP_SFP_CONTROL_TX_FAULT:
             {
-                if(port==32 || port==33) {
-            	    if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, bus, addr, (port+1)) < 0) {
-                        AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n", port);
-                        rv = ONLP_STATUS_E_INTERNAL;
-                    }
-                    else {
-                        rv = ONLP_STATUS_OK;
-                    }
+                VALIDATE_SFP(port);
+                if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, bus, addr, (port+1)) < 0) {
+                    AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n", port);
+                    rv = ONLP_STATUS_E_INTERNAL;
                 }
                 else {
-                    rv = ONLP_STATUS_E_UNSUPPORTED;
+                    rv = ONLP_STATUS_OK;
                 }
                 break;
             }
 
         case ONLP_SFP_CONTROL_TX_DISABLE:
             {
-                if(port==32 || port==33) {
-            	    if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, bus, addr, (port+1)) < 0) {
-                        AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
-                        rv = ONLP_STATUS_E_INTERNAL;
+                present = onlp_sfpi_is_present(port);
+                /* read qsfp eeprom offset of tx disable if qsfp on the port */
+                if(present == 1)
+                {
+                    if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX)
+                    {
+                        tx_dis = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS);
+                        if(tx_dis < 0) {
+                            AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d): read eeprom fail\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        } 
+                        else {
+                            *value = tx_dis;
+                            rv = ONLP_STATUS_OK;
+                        }
                     }
+                    else
+                    {
+                        if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, bus, addr, (port+1)) < 0) {
+                            AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
+                            rv = ONLP_STATUS_E_INTERNAL;
+                        }
+                        else {
+                            rv = ONLP_STATUS_OK;
+                        }
+                    }
+                }
+                else
+                {
+                    rv = ONLP_STATUS_E_INTERNAL;
+                }
+                break;
+            }
+
+        case ONLP_SFP_CONTROL_RESET: 
+            {
+                VALIDATE_QSFP(port);
+                if (onlp_file_read_int(value, MODULE_RESET_FORMAT, bus, addr, (port+1)) < 0) {
+                    AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", port);
+                    rv = ONLP_STATUS_E_INTERNAL;
+                }
+                else { 
+                    rv = ONLP_STATUS_OK;
+                }
+                break;
+            }
+
+        case ONLP_SFP_CONTROL_LP_MODE:
+            {
+                VALIDATE_QSFP(port);
+                present = onlp_sfpi_is_present(port);
+                if (present == 1) {
+                    /* lpmode valid bit(bit0):set LP/txdis mode bit(bit1):set low/high power mode */
+                    lpmode_value = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_LPMODE);
+                    if(lpmode_value < 0) {
+                        AIM_LOG_ERROR("Unable to read LP mode status from port(%d): read eeprom fail\r\n", port);
+                        rv = ONLP_STATUS_E_INTERNAL;
+                    } 
                     else {
+                        *value = ((lpmode_value & QSFP_LPMODE) == QSFP_LPMODE);
                         rv = ONLP_STATUS_OK;
                     }
                 }
-                else {
-                    rv = ONLP_STATUS_E_UNSUPPORTED;
+                else
+                {
+                    rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
             }
