@@ -366,7 +366,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 }
                 else
                 {
-                    AIM_LOG_ERROR("Unable to write tx_disabled status to port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
 
@@ -415,7 +414,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 }
                 else
                 {
-                    AIM_LOG_ERROR("Unable to write LP mode status to port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
@@ -504,7 +502,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 }
                 else
                 {
-                    AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
@@ -541,7 +538,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 }
                 else
                 {
-                    AIM_LOG_ERROR("Unable to read LP mode status from port(%d): module is not present\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
                 break;
