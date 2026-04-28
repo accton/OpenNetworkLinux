@@ -84,8 +84,6 @@ led_light_mode_map_t led_map[] = {
 {LED_LOC, LED_MODE_AMBER,        ONLP_LED_MODE_ORANGE},
 {LED_LOC, LED_MODE_GREEN_BLINK,  ONLP_LED_MODE_GREEN_BLINKING},
 {LED_FAN, LED_MODE_AUTO,   ONLP_LED_MODE_AUTO},
-{LED_PSU1, LED_MODE_AUTO,   ONLP_LED_MODE_AUTO},
-{LED_PSU2, LED_MODE_AUTO,   ONLP_LED_MODE_AUTO}
 };
 
 static char last_path[][10] =  /* must map with onlp_led_id */
@@ -182,11 +180,37 @@ onlp_ledi_info_get(onlp_oid_t id, onlp_led_info_t* info)
 
     local_id = ONLP_OID_ID_GET(id);
 
-    /* get fullpath */
-    sprintf(fullpath, "%s%s/%s", prefix_path, last_path[local_id], filename);
-
 	/* Set the onlp_oid_hdr_t and capabilities */
     *info = linfo[ONLP_OID_ID_GET(id)];
+
+    /* PSU LED state is derived from PSU presence + power_good rather than
+     * the LED CPLD register, which does not reliably reflect the HW state.
+     *   present == 0           -> OFF
+     *   present + power_good   -> GREEN
+     *   present + !power_good  -> AMBER
+     */
+    if (local_id == LED_PSU1 || local_id == LED_PSU2) {
+        int psu_id = (local_id == LED_PSU1) ? PSU1_ID : PSU2_ID;
+        int present = 0, power_good = 0;
+
+        if (psu_status_info_get(psu_id, "psu_present", &present) != 0 ||
+            present != PSU_STATUS_PRESENT) {
+            info->mode = ONLP_LED_MODE_OFF;
+            return ONLP_STATUS_OK;
+        }
+
+        if (psu_status_info_get(psu_id, "psu_power_good", &power_good) == 0 &&
+            power_good == 1) {
+            info->mode = ONLP_LED_MODE_GREEN;
+        } else {
+            info->mode = ONLP_LED_MODE_ORANGE;
+        }
+        info->status |= ONLP_LED_STATUS_ON;
+        return ONLP_STATUS_OK;
+    }
+
+    /* get fullpath */
+    sprintf(fullpath, "%s%s/%s", prefix_path, last_path[local_id], filename);
 
     /* Set LED mode */
     if (onlp_file_read_string(fullpath, data, sizeof(data), 0) != 0) {
