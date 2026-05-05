@@ -300,7 +300,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
 			return ONLP_STATUS_OK;
 		} else {
-			AIM_LOG_ERROR("No transceiver is present in port(%d)\r\n", port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
@@ -367,7 +366,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
 			return ONLP_STATUS_OK;
 		} else {
-			AIM_LOG_ERROR("No transceiver is present in port(%d)\r\n", port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
