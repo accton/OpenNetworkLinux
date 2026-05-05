@@ -38,7 +38,6 @@
 #define NUM_OF_CPLD        5
 #define FAN_DUTY_CYCLE_MAX         (100)
 #define FAN_DUTY_CYCLE_DEFAULT     (FAN_DUTY_CYCLE_MAX)
-#define BIOS_VER_PATH "/sys/devices/virtual/dmi/id/bios_version"
 /* Number of sensor points considered by the fan/thermal policy */
 #define NUM_THERMAL_POLICY_SENSORS   7
 
@@ -102,9 +101,10 @@ int onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
     int   i, v[NUM_OF_CPLD]={0};
     onlp_onie_info_t onie;
     char *bios_ver = NULL;
+    char *mfu_ver = NULL;
+    const char *bios = "";
+    const char *mfu = "";
 
-    /* BIOS version */
-    onlp_file_read_str(&bios_ver, BIOS_VER_PATH);
     /* ONIE version */
     onlp_onie_decode_file(&onie, IDPROM_PATH);
 
@@ -121,11 +121,20 @@ int onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
                                     "\r\n\t   FAN CPLD(0x66): %02X"
                                     , v[0], v[1], v[2], v[3], v[4]);
 
-    pi->other_versions = aim_fstrdup("\r\n\t   BIOS: %s\r\n\t   ONIE: %s",
-                                    bios_ver, onie.onie_version);
+    if (onlp_file_read_str(&bios_ver, BIOS_VER_PATH) > 0) {
+        bios = bios_ver;
+    }
+    if (onlp_file_read_str(&mfu_ver, MFU_VER_PATH) > 0) {
+        mfu = mfu_ver;
+    }
+
+    pi->other_versions = aim_fstrdup("\r\n\t   BIOS: %s\r\n\t   ONIE: %s"
+                                     "\r\n\t   MFU: %s",
+                                    bios, onie.onie_version, mfu);
 
     onlp_onie_info_free(&onie);
     AIM_FREE_IF_PTR(bios_ver);
+    AIM_FREE_IF_PTR(mfu_ver);
 
     return 0;
 }
