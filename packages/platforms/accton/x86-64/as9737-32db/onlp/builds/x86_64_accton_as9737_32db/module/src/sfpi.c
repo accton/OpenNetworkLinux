@@ -29,17 +29,30 @@
 #include "x86_64_accton_as9737_32db_int.h"
 #include "x86_64_accton_as9737_32db_log.h"
 
+#define SFP_PORT_MIN 33
+#define SFP_PORT_MAX 34
+#define QSFP_PORT_MIN 1
+#define QSFP_PORT_MAX 32
+#define MIN_PORT QSFP_PORT_MIN
+#define MAX_PORT SFP_PORT_MAX
+
 #define VALIDATE_SFP(_port) \
 	do { \
-		if (_port < 33 || _port > 34) \
+		if (_port < SFP_PORT_MIN || _port > SFP_PORT_MAX) \
 			return ONLP_STATUS_E_UNSUPPORTED; \
 	} while(0)
 
 #define VALIDATE_QSFP(_port) \
 	do { \
-		if (_port < 1 || _port > 32 ) \
+		if (_port < QSFP_PORT_MIN || _port > QSFP_PORT_MAX ) \
 			return ONLP_STATUS_E_UNSUPPORTED; \
 	} while(0)
+
+#define VALIDATE_PORT(_port) \
+    do { \
+        if (_port < MIN_PORT || _port > MAX_PORT ) \
+            return ONLP_STATUS_E_UNSUPPORTED; \
+    } while(0)
 
 #define MODULE_EEPROM_FORMAT       "/sys/bus/i2c/devices/%d-0050/eeprom"
 #define MODULE_PRESENT_CPLD2_FORMAT "/sys/bus/i2c/devices/36-0061/module_present_%d"
@@ -60,6 +73,31 @@ static const int port_bus_index[NUM_OF_SFP_PORT] = {
 };
 
 #define PORT_BUS_INDEX(port) (port_bus_index[port-1])
+
+/* QSFP device address of eeprom */
+#define PORT_EEPROM_DEVADDR 0x50
+
+/*QSFP identify offsets*/
+#define QSFP_EEPROM_OFFSET_IDENTIFIER 0x0
+
+/* QSFP eeprom offsets*/
+#define QSFP_EEPROM_OFFSET_TXDIS 0x56
+
+/* QSFP DD eeprom offsets*/
+#define QSFP_DD_EEPROM_OFFSET_BANK_SELECT 0x7E
+#define QSFP_DD_EEPROM_OFFSET_PAGE_SELECT 0x7F
+#define QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1 0x9B
+#define QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX 0x82
+
+/* QSFP DD Specific*/
+#define QSFP_DD_PAGE_ADMIN_INFO 0x0
+#define QSFP_DD_PAGE_ADVERTISING 0x1
+#define QSFP_DD_PAGE_LANE_CTRL 0x10
+#define QSFP_DD_P01H_TX_DISABLE_SUPPORT 0x2
+
+/*QSFP Specific*/
+#define QSFP_DD_IDENTIFIER 0x18
+
 
 /************************************************************
  *
@@ -211,15 +249,111 @@ int
 onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 {
 	char *path = NULL;
+    int present = 0;
+    int identifier = 0;
+	int eeprom_control;
+
+    VALIDATE_PORT(port);
 
 	switch(control) {
-	case ONLP_SFP_CONTROL_TX_DISABLE: {
-		VALIDATE_SFP(port);
+	case ONLP_SFP_CONTROL_TX_DISABLE:
+	case ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL: {
+		present = onlp_sfpi_is_present(port);
+		/* read qsfp eeprom offset of tx disable if qsfp on the port */
+		if(present == 1) {
+			if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) {
+				if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, port) 
+					< 0) {
+					AIM_LOG_ERROR("Unable to write tx_disable status to port(%d)\r\n", 
+							port);
+					return ONLP_STATUS_E_INTERNAL;
+				}
+			}
+			else { //QSFP
 
-		if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, port) 
-			< 0) {
-			AIM_LOG_ERROR("Unable to set tx_disable status to port(%d)\r\n", 
-					port);
+				identifier = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_IDENTIFIER);
+				if(identifier < 0){
+					AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): read identifier from eeprom fail\r\n", 
+							port);
+					return ONLP_STATUS_E_INTERNAL;
+				}
+				else if (identifier == QSFP_DD_IDENTIFIER) { /* QSFP DD */
+					if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) <0 ){
+						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", 
+								port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+
+					eeprom_control = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1);
+					if(eeprom_control < 0){
+						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): read control from eeprom fail\r\n", port);
+
+						if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) <0){
+							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", 
+									port);
+						}
+
+						return ONLP_STATUS_E_INTERNAL;
+					}
+					if (eeprom_control & QSFP_DD_P01H_TX_DISABLE_SUPPORT){
+
+						if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
+
+							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write bank to eeprom fail\r\n", port);
+
+							if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+							}
+
+							return ONLP_STATUS_E_INTERNAL;
+						}
+
+						if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
+							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+
+							if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+							}
+
+							return ONLP_STATUS_E_INTERNAL;
+						}
+
+						if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX, value) < 0) {
+							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write TX disable to eeprom fail\r\n", port);
+
+							if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+							}
+
+							return ONLP_STATUS_E_INTERNAL;
+						}
+					} else {
+						if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) <0){
+							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+						}
+
+						AIM_LOG_ERROR("Setting tx disable to port(%d) is not supported\r\n", port);
+						return ONLP_STATUS_E_UNSUPPORTED;
+					}
+
+					if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) <0){
+						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+				} 
+				else { /* QSFP 28 or QSFP+ */
+					/* txdis valid bit(bit0-bit3), xxxx 1111 */
+					value = value&0xf;
+					if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS, value) <0 ){
+						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write TX disable to eeprom fail\r\n", 
+								port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+
+				}
+			}
+		}
+		else {
 			return ONLP_STATUS_E_INTERNAL;
 		}
 
@@ -246,7 +380,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 				   : MODULE_LPMODE_CPLD3_FORMAT;
 
 		if (onlp_file_write_int(value, path, port) < 0) {
-			AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", 
+			AIM_LOG_ERROR("Unable to write LP mode to port(%d)\r\n", 
 					port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
@@ -254,16 +388,21 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 		return ONLP_STATUS_OK;
 	}
 	default:
-		break;
+		return ONLP_STATUS_E_UNSUPPORTED;
 	}
 
-	return ONLP_STATUS_E_UNSUPPORTED;
+	return ONLP_STATUS_E_INTERNAL;
 }
 
 int
 onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 {
 	char *path = NULL;
+    int present = 0;
+    int identifier = 0;
+	int tx_disable;
+
+	VALIDATE_PORT(port);
 
 	switch(control) {
 	case ONLP_SFP_CONTROL_RX_LOS: {
@@ -291,12 +430,70 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 		return ONLP_STATUS_OK;
 	}
 
-	case ONLP_SFP_CONTROL_TX_DISABLE: {
-		VALIDATE_SFP(port);
+	case ONLP_SFP_CONTROL_TX_DISABLE: 
+	case ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL: {
 
-		if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, port) < 0) {
-			AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", 
-					port);
+        present = onlp_sfpi_is_present(port);
+        /* read qsfp eeprom offset of tx disable if qsfp on the port */
+        if(present == 1) {
+            if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) {
+				if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, port) < 0) {
+					AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", 
+							port);
+					return ONLP_STATUS_E_INTERNAL;
+				}
+			}
+			else {
+				identifier = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_IDENTIFIER);
+				if(identifier < 0){
+					AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : read identifier from eeprom fail\r\n", 
+							port);
+					return ONLP_STATUS_E_INTERNAL;
+				}
+				else if (identifier == QSFP_DD_IDENTIFIER) { /* QSFP DD */
+					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
+
+						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write bank to eeprom fail\r\n",
+									port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+
+					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
+
+						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write page to eeprom fail\r\n",
+									port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+
+					tx_disable = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX);
+					if(tx_disable < 0){
+						if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) <0){
+							AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write page to eeprom fail\r\n", 
+									port);
+						}
+						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : read TX disable from eeprom fail\r\n", 
+								port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+					*value = tx_disable;
+					if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) <0){
+						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write page to eeprom fail\r\n", 
+								port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+				}
+				else { /* QSFP 28 or QSFP+ */
+					tx_disable = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS);
+					if(tx_disable < 0){
+						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : read TX disable from eeprom fail\r\n", 
+								port);
+						return ONLP_STATUS_E_INTERNAL;
+					}
+					*value = tx_disable;
+				}
+			}
+		}
+		else {
 			return ONLP_STATUS_E_INTERNAL;
 		}
 
@@ -323,7 +520,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 				   : MODULE_LPMODE_CPLD3_FORMAT;
 
 		if (onlp_file_read_int(value, path, port) < 0) {
-			AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", 
+			AIM_LOG_ERROR("Unable to read LP mode status from port(%d)\r\n", 
 					port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
@@ -331,10 +528,10 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 		return ONLP_STATUS_OK;
 	}
 	default:
-		break;
+		return ONLP_STATUS_E_UNSUPPORTED;
 	}
 
-	return ONLP_STATUS_E_UNSUPPORTED;
+	return ONLP_STATUS_E_INTERNAL;
 }
 
 int
