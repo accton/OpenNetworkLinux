@@ -819,6 +819,7 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
                 goto exit;
             }
 
+            buf = min_t(u8, buf, ARRAY_SIZE(data->mfr_model)-2);
             status = ym2651y_read_block(client, command, data->mfr_model, buf+1);
             data->mfr_model[buf+1] = '\0';
 
@@ -838,6 +839,7 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
                 goto exit;
             }
 
+            buf = min_t(u8, buf, ARRAY_SIZE(data->mfr_model_opt)-2);
             status = ym2651y_read_block(client, command, data->mfr_model_opt, buf+1);
             data->mfr_model_opt[buf+1] = '\0';
 
@@ -873,13 +875,10 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
                 goto exit;
             }
 
+            buf = min_t(u8, buf, ARRAY_SIZE(data->mfr_serial)-2);
             status = ym2651y_read_block(client, command, data->mfr_serial, buf+1);
-            if (data->mfr_serial[0] < ARRAY_SIZE(data->mfr_serial)-2) {
-                data->mfr_serial[data->mfr_serial[0] + 1] = '\0';
-            }
-            else {
-                data->mfr_serial[ARRAY_SIZE(data->mfr_serial)-1] = '\0';
-            }
+
+            data->mfr_serial[buf+1] = '\0';
 
             if (status < 0) {
                 dev_dbg(&client->dev, "reg %d, err %d\n", command, status);
