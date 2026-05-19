@@ -1174,6 +1174,14 @@ static ssize_t fpga_write_port_value(int fpga_type, int set_type, int bit_num,
 		break;
 	}
 
+	if(set_type == PCIE_FPGA_SET_LPMODE) {
+		fpga_ctl->pci_fpga_dev[fpga_type].qsfp_lpmode = val_set;
+	} else if(set_type == PCIE_FPGA_SET_RESET) {
+		fpga_ctl->pci_fpga_dev[fpga_type].qsfp_reset = val_set;
+	} else {
+		fpga_ctl->pci_fpga_dev[fpga_type].sfp_output_data = val_set;
+	}
+
 	return 0;
 }
 
@@ -1750,6 +1758,7 @@ static ssize_t port_status_write(struct device *dev, struct device_attribute *da
 		return status;
 
 	mutex_lock(&update_lock);
+	fpga_read_port_status_value(eeprom);
 
 	switch(attr->index) {
 	case MODULE_LPMODE_1 ... MODULE_LPMODE_32:
@@ -1759,7 +1768,7 @@ static ssize_t port_status_write(struct device *dev, struct device_attribute *da
 		break;
 	case MODULE_LPMODE_33 ... MODULE_LPMODE_64:
 		fpga_write_port_value(PCIE_FPGA_LDB, PCIE_FPGA_SET_LPMODE, 
-					(attr->index - MODULE_LPMODE_1), 
+					(attr->index - MODULE_LPMODE_33), 
 					!!value);
 		break;
 	case MODULE_RESET_1 ... MODULE_RESET_32:
@@ -1769,7 +1778,7 @@ static ssize_t port_status_write(struct device *dev, struct device_attribute *da
 		break;
 	case MODULE_RESET_33 ... MODULE_RESET_64:
 		fpga_write_port_value(PCIE_FPGA_LDB, PCIE_FPGA_SET_RESET, 
-					(attr->index - MODULE_RESET_1), 
+					(attr->index - MODULE_RESET_33), 
 					!value);
 		break;
 	case MODULE_TX_DISABLE_65 ... MODULE_TX_DISABLE_66:
