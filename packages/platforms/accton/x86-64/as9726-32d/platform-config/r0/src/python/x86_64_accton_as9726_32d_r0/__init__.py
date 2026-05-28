@@ -16,6 +16,8 @@ class OnlPlatform_x86_64_accton_as9726_32d_r0(OnlPlatformAccton,
         for m in [ 'cpld', 'fan', 'psu', 'leds' ]:
             self.insmod("x86-64-accton-as9726-32d-%s.ko" % m)
 
+        os.system('modprobe at24')
+
         ########### initialize I2C bus 0 ###########
         # initialize multiplexer (PCA9548)        
         self.new_i2c_device('pca9548', 0x77, 0)
