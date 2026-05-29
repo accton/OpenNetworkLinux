@@ -726,8 +726,12 @@ static ssize_t show_psu_fan(struct device *dev, struct device_attribute *da,
             break;
         case PSU_FAN_DIRECTION: /* psu_fan_dir, 0=>F2B, 1=>B2F */
             if ((strncmp((data->psu_data[pid].mfr_model), "C1A-B0650-C", strlen("C1A-B0650-C")) == 0) ||
-                (strncmp((data->psu_data[pid].mfr_model), "G1342-0800W", strlen("G1342-0800W")) == 0))
+                (strncmp((data->psu_data[pid].mfr_model), "G1342-0800WNA", strlen("G1342-0800WNA")) == 0) ||
+                (strncmp((data->psu_data[pid].mfr_model), "G1232-0800WNA", strlen("G1232-0800WNA")) == 0))
                 status = sprintf(buf, "0\n");
+            else if ((strncmp((data->psu_data[pid].mfr_model), "G1342-0800WRA", strlen("G1342-0800WRA")) == 0) ||
+                (strncmp((data->psu_data[pid].mfr_model), "G1232-0800WRA", strlen("G1232-0800WRA")) == 0))
+                status = sprintf(buf, "1\n");
             else
                 /* Unknown direction */
                 status = sprintf(buf, "2\n");
@@ -857,8 +861,12 @@ static ssize_t show_psu_mfr(struct device *dev, struct device_attribute *da,
         case PSU_VIN_TYPE:
             /* 0:Unknown 1:AC 2:DC*/
             if ((strncmp((data->psu_data[pid].mfr_model), "C1A-B0650-C", strlen("C1A-B0650-C")) == 0) ||
-                (strncmp((data->psu_data[pid].mfr_model), "G1342-0800W", strlen("G1342-0800W")) == 0)) {
+                (strncmp((data->psu_data[pid].mfr_model), "G1342-0800WNA", strlen("G1342-0800WNA")) == 0) ||
+                (strncmp((data->psu_data[pid].mfr_model), "G1342-0800WRA", strlen("G1342-0800WRA")) == 0)) {
                 status = sprintf(buf, "1\n");
+            } else if ((strncmp((data->psu_data[pid].mfr_model), "G1232-0800WNA", strlen("G1232-0800WNA")) == 0) ||
+                (strncmp((data->psu_data[pid].mfr_model), "G1232-0800WRA", strlen("G1232-0800WRA")) == 0)) {
+                status = sprintf(buf, "2\n");
             } else {
                 status = sprintf(buf, "0\n");
             }
