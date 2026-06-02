@@ -261,8 +261,12 @@ static ssize_t show_word(struct device *dev, struct device_attribute *da, char *
         break;
     case PSU_FAN_DIRECTION: /* psu_fan_dir, 0=>F2B, 1=>B2F */
         if ((strncmp((data->mfr_model + 1), "C1A-B0650-C", strlen("C1A-B0650-C")) == 0) ||
-            (strncmp((data->mfr_model + 1), "G1342-0800W", strlen("G1342-0800W")) == 0)){
+            (strncmp((data->mfr_model + 1), "G1342-0800WNA", strlen("G1342-0800WNA")) == 0) ||
+            (strncmp((data->mfr_model + 1), "G1232-0800WNA", strlen("G1232-0800WNA")) == 0)){
             status = 0;
+        } else if ((strncmp((data->mfr_model + 1), "G1342-0800WRA", strlen("G1342-0800WRA")) == 0) ||
+            (strncmp((data->mfr_model + 1), "G1232-0800WRA", strlen("G1232-0800WRA")) == 0)){
+            status = 1;
         }
         break;
     default:
@@ -613,8 +617,12 @@ static struct as7327_56x_data *as7327_56x_update_device(struct device *dev)
 
         /* mfr_vin_type */
         if ((strncmp((data->mfr_model + 1), "C1A-B0650-C", strlen("C1A-B0650-C")) == 0) ||
-            (strncmp((data->mfr_model + 1), "G1342-0800W", strlen("G1342-0800W")) == 0)){
+            (strncmp((data->mfr_model + 1), "G1342-0800WNA", strlen("G1342-0800WNA")) == 0) ||
+            (strncmp((data->mfr_model + 1), "G1342-0800WRA", strlen("G1342-0800WRA")) == 0)){
             data->mfr_vin_type = 1;
+        } else if ((strncmp((data->mfr_model + 1), "G1232-0800WNA", strlen("G1232-0800WNA")) == 0) ||
+            (strncmp((data->mfr_model + 1), "G1232-0800WRA", strlen("G1232-0800WRA")) == 0)){
+            data->mfr_vin_type = 2;
         }
 
         data->last_updated = jiffies;

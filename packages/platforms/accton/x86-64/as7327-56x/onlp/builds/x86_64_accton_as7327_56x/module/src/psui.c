@@ -233,6 +233,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         switch (psu_type) {
             case PSU_TYPE_DC:
                 info->caps = ONLP_PSU_CAPS_DC48;
+                break;
             case PSU_TYPE_AC:
                 info->caps = ONLP_PSU_CAPS_AC;
                 break;
@@ -286,6 +287,7 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         switch (psu_type) {
             case PSU_TYPE_DC:
                 info->caps = ONLP_PSU_CAPS_DC48;
+                break;
             case PSU_TYPE_AC:
                 info->caps = ONLP_PSU_CAPS_AC;
                 break;
