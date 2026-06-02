@@ -140,6 +140,13 @@ int onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 		AIM_LOG_ERROR("Unable to read PSU(%d) node(psu_power_good)\r\n",
 				index);
 
+	if (val != PSU_STATUS_POWER_GOOD) {
+		info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+		info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
+		info->hdr.coids[1] = ONLP_THERMAL_ID_CREATE(index + CHASSIS_THERMAL_COUNT);
+		return ONLP_STATUS_OK;
+	}
+
 	/* Get PSU type
 	 */
 	psu_type = get_psu_type(index, info->model, sizeof(info->model));
@@ -161,11 +168,6 @@ int onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 		ret = ONLP_STATUS_E_UNSUPPORTED;
 		break;
 	}
-
-    if (val != PSU_STATUS_POWER_GOOD) {
-        info->status |=  ONLP_PSU_STATUS_UNPLUGGED;
-        info->caps = 0;
-    }
 
 	return ret;
 }

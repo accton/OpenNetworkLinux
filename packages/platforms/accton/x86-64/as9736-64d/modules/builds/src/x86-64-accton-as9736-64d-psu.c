@@ -98,9 +98,9 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 	}
 
 	if (attr->index == PSU_PRESENT)
-		status = !(data->status >> (1-data->index) & 0x1);
+		status = !(data->status >> (data->index) & 0x1);
 	else /* PSU_POWER_GOOD */
-		status = (data->status >> (3-data->index) & 0x1);
+		status = (data->status >> (2+data->index) & 0x1);
 
 	mutex_unlock(&data->update_lock);
 	return sprintf(buf, "%d\n", status);

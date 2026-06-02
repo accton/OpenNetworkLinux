@@ -79,8 +79,8 @@ static char* devfiles__[] =  /* must map with onlp_thermal_id */
 	"/sys/bus/i2c/devices/58-004c*temp1_input",
 	"/sys/bus/i2c/devices/65-004c*temp1_input",
 	"/sys/bus/i2c/devices/66-004d*temp1_input",
-	"/sys/bus/i2c/devices/33-0058*psu_temp1_input",
 	"/sys/bus/i2c/devices/41-0059*psu_temp1_input",
+	"/sys/bus/i2c/devices/33-0058*psu_temp1_input",
 };
 
 typedef struct {
