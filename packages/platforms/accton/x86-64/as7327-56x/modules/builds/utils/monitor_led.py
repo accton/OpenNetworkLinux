@@ -183,6 +183,51 @@ def clear_sys_led_wdt():
     ret, output = getstatusoutput(cmd)
     return ret
 
+USB_LED_PATH = '/sys/class/leds/accton_as7327_56x_led::usb/brightness'
+USB_DATA_FLOW_PATH = '/sys/bus/usb/devices/1-1.1/urbnum'
+URB_THRESHOLD = 4
+
+old_usb_data_num = 0
+
+def get_usb_data_num():
+    try:
+        with open(USB_DATA_FLOW_PATH, 'r') as f:
+            return int(f.read().strip())
+    except (IOError, ValueError):
+        return -1
+
+def set_usb_led(led):
+    cmd = "echo {:d} > {}".format(led, USB_LED_PATH)
+    ret, output = getstatusoutput(cmd)
+    return ret
+
+def usb_led_ctrl():
+    global old_usb_data_num
+
+    if not os.path.exists(USB_DATA_FLOW_PATH):
+        set_usb_led(LED_DARK)
+        old_usb_data_num = 0
+        return
+
+    cur_usb_data_num = get_usb_data_num()
+    if cur_usb_data_num < 0:
+        set_usb_led(LED_DARK)
+        old_usb_data_num = 0
+        return
+
+    if old_usb_data_num == 0:
+        old_usb_data_num = cur_usb_data_num
+        set_usb_led(LED_GREEN_ON)
+        return
+
+    diff = cur_usb_data_num - old_usb_data_num
+    old_usb_data_num = cur_usb_data_num
+
+    if diff > URB_THRESHOLD:
+        set_usb_led(LED_GREEN_BLINK)
+    else:
+        set_usb_led(LED_GREEN_ON)
+
 fan_warn_count = 0
 def sys_led_ctrl():
     global fan_warn_count
@@ -217,6 +262,7 @@ def main(argv):
     # Loop forever, doing something useful hopefully:
     while True:
         sys_led_ctrl()
+        usb_led_ctrl()
         time.sleep(SLEEP_TIME)
 
 if __name__ == '__main__':

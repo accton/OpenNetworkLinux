@@ -60,6 +60,10 @@ class OnlPlatform_x86_64_accton_as7327_56x_r0(OnlPlatformAccton,
             self.insmod("x86-64-accton-as7327-56x-psu_bmc.ko")
             self.insmod("x86-64-accton-as7327-56x-thermal_bmc.ko")
 
+            bin_path = "/lib/platform-config/current/onl/bin"
+            self.add_path(bin_path)
+            os.system("sudo /usr/bin/python -u {}/usb_led_monitor.py &".format(bin_path))
+
         else:
             self.insmod("x86-64-accton-as7327-56x-psu.ko")
 
