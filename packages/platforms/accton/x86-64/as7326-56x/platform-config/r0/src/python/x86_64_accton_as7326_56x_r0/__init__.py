@@ -5,6 +5,37 @@ import commands
 import os.path
 import time
 
+def get_mfu_ver_file():
+    cmd_list = [
+        "mkdir -p /mnt/onie-boot",
+        "blkid | grep 'ONIE-BOOT'",
+        "mount -L ONIE-BOOT /mnt/onie-boot",
+        "cp -a /mnt/onie-boot/onie/update/last_updated_MFU_version /var/tmp",
+        "umount /mnt/onie-boot"
+    ]
+
+    for cmd in cmd_list:
+        if "cp -a" in cmd:
+            if not os.path.isfile("/mnt/onie-boot/onie/update/last_updated_MFU_version"):
+                print("last_updated_MFU_version file does not exist !")
+                continue
+
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process.communicate()
+
+        if process.returncode != 0:
+            if "blkid" in cmd and process.returncode == 1:
+                print("ONIE-BOOT label does not exist !")
+            else:
+                print("'" + cmd + "'" + " runs with error return code: " + str(process.returncode))
+
+                if "cp -a" in cmd:
+                    continue
+
+            return False
+
+    return True
+
 #IR3570A chip casue problem when read eeprom by i2c-block mode.
 #It happen when read 16th-byte offset that value is 0x8. So disable chip
 def disable_i2c_ir3570a(addr):
@@ -62,6 +93,7 @@ class OnlPlatform_x86_64_accton_as7326_56x_r0(OnlPlatformAccton,
             self.insmod("x86-64-accton-as7326-56x-%s.ko" % m)
 
         self.new_i2c_device('pca9548', 0x77, 0)
+        self.new_i2c_device('as7326_56x_cpu_cpld', 0x65, 0)
         ########### initialize I2C bus 1 ###########
         # initialize multiplexer (PCA9548)
         self.new_i2c_device('pca9548', 0x70, 1)
@@ -152,5 +184,6 @@ class OnlPlatform_x86_64_accton_as7326_56x_r0(OnlPlatformAccton,
 
         ir3570_check()
         _8v89307_init()
+        get_mfu_ver_file()
 
         return True
