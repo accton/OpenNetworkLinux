@@ -42,7 +42,7 @@ def _8v89307_init():
         status, output = commands.getstatusoutput(script)
         print output
         if status != 0:
-            print "Error in 8v89307_init: " + str(e)
+            print "Error in 8v89307_init: Init failed"
             return False
     return True
 
@@ -58,6 +58,8 @@ class OnlPlatform_x86_64_accton_as7726_32x_r0(OnlPlatformAccton,
         self.insmod('ym2651y')
         for m in [ 'cpld', 'fan', 'psu', 'leds' ]:
             self.insmod("x86-64-accton-as7726-32x-%s.ko" % m)
+
+        os.system('modprobe at24')
 
         ########### initialize I2C bus 0 ###########
         # initialize multiplexer (PCA9548)
