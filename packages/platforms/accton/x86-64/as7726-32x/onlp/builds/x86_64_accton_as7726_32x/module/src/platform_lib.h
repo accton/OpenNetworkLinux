@@ -65,6 +65,9 @@
 
 #define IDPROM_PATH "/sys/class/i2c-adapter/i2c-0/0-0056/eeprom"
 
+#define BIOS_VER_PATH "/sys/devices/virtual/dmi/id/bios_version"
+#define MFU_VER_PATH "/var/tmp/last_updated_MFU_version"
+
 int onlp_file_write_integer(char *filename, int value);
 int onlp_file_read_binary(char *filename, char *buffer, int buf_size, int data_len);
 int onlp_file_read_string(char *filename, char *buffer, int buf_size, int data_len);
@@ -94,6 +97,15 @@ int psu_acbel_serial_number_get(int id, char *serial, int serial_len);
 #else
     #define DEBUG_PRINT(format, ...)  
 #endif
+
+#define AIM_FREE_IF_PTR(p) \
+    do \
+    { \
+        if (p) { \
+            aim_free(p); \
+            p = NULL; \
+        } \
+    } while (0)
 
 #endif  /* __PLATFORM_LIB_H__ */
 
