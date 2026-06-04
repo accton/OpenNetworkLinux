@@ -92,6 +92,8 @@ class OnlPlatform_x86_64_accton_as7326_56x_r0(OnlPlatformAccton,
         for m in [ 'cpld', 'fan', 'psu', 'leds' ]:
             self.insmod("x86-64-accton-as7326-56x-%s.ko" % m)
 
+        os.system('modprobe at24')
+
         self.new_i2c_device('pca9548', 0x77, 0)
         self.new_i2c_device('as7326_56x_cpu_cpld', 0x65, 0)
         ########### initialize I2C bus 1 ###########
