@@ -1031,6 +1031,7 @@ static int as7326_56x_cpld_remove(struct i2c_client *client)
         break;
 	case as7326_56x_cpld3:
         group = &as7326_56x_cpld3_group;
+        break;
     case as7326_56x_cpu_cpld:
         group = &as7326_56x_cpu_cpld_group;
         break;
