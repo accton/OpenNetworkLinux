@@ -64,12 +64,13 @@ class OnlPlatform_x86_64_accton_as9736_64d_r0(OnlPlatformAccton,
 
         self.new_i2c_devices([
             # initiate PSU-1
-            ('as9736_64d_psu1', 0x50, 33),
-            ('acbel_fsh082', 0x58, 33),
+            ('as9736_64d_psu1', 0x51, 41),
+            ('acbel_fsh082', 0x59, 41),
 
             # initiate PSU-2
-            ('as9736_64d_psu2', 0x51, 41),
-            ('acbel_fsh082', 0x59, 41),
+
+            ('as9736_64d_psu2', 0x50, 33),
+            ('acbel_fsh082', 0x58, 33),
          ])
 
         self.new_i2c_device('as973d_64d_sys', 0x51, 20)
