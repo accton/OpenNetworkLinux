@@ -82,7 +82,7 @@ show_inventory__(aim_pvs_t* pvs, int database)
                 continue;
             }
 
-            sff_eeprom_t sff;
+            sff_eeprom_t sff = {0};
             char status_str[32] = {0};
 
             sff_eeprom_parse(&sff, data);
