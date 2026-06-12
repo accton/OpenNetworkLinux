@@ -85,6 +85,8 @@
 #define QSFP_DD_PAGE_ADMIN_INFO 0x0
 #define QSFP_DD_PAGE_ADVERTISING 0x1
 #define QSFP_DD_PAGE_LANE_CTRL 0x10
+#define QSFP_DD_LOWER_OFFSET_STATUS 0x02
+#define QSFP_DD_FLAT_MEM 0x80                          /* byte 0x02 bit 7 */
 #define QSFP_DD_P01H_TX_DISABLE_SUPPORT 0x2
 #define QSFP_DD_LPMODE 0x10
 
@@ -287,6 +289,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
     int present = 0;
     int lpmode_value = 0;
     int identifier = 0;
+    int status_byte = 0;
     int eeprom_control;
 
     VALIDATE_PORT(port);
@@ -324,7 +327,16 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                             rv = ONLP_STATUS_E_INTERNAL;
                         }
                         else if (identifier == QSFP_DD_IDENTIFIER) { /*QSFP DD*/
-                            if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) <0 ){
+                            /* Flat-memory CMIS modules do not implement page 01h/10h */
+                            if ((status_byte = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_LOWER_OFFSET_STATUS)) < 0) {
+                                AIM_LOG_ERROR("Failed to read Status byte, unable to write tx_disable status to port(%d)\r\n", port);
+                                rv = ONLP_STATUS_E_INTERNAL;
+                            }
+                            else if (status_byte & QSFP_DD_FLAT_MEM) {
+                                AIM_LOG_ERROR("Setting tx_disable to port(%d) is not supported (flat-memory module)\r\n", port);
+                                rv = ONLP_STATUS_E_UNSUPPORTED;
+                            }
+                            else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) <0 ){
                                 AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", 
                                         port);
                                 rv = ONLP_STATUS_E_INTERNAL;
@@ -482,6 +494,8 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
     int present = 0;
     int lpmode_value = 0;
     int identifier = 0;
+    int status_byte = 0;
+    int support_ctrls = 0;
     int tx_dis = 0;
 
     VALIDATE_PORT(port);
@@ -546,14 +560,39 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                             rv = ONLP_STATUS_E_INTERNAL;
                         }
                         else if (identifier == QSFP_DD_IDENTIFIER) {/* QSFP DD */
-                            if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0){
+                            /* Flat-memory CMIS modules do not implement page 01h/10h */
+                            if ((status_byte = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_LOWER_OFFSET_STATUS)) < 0) {
+                                AIM_LOG_ERROR("Failed to read Status byte, unable to read tx_disable status from port(%d)\r\n", port);
+                                rv = ONLP_STATUS_E_INTERNAL;
+                            }
+                            else if (status_byte & QSFP_DD_FLAT_MEM) {
+                                AIM_LOG_ERROR("Getting tx_disable from port(%d) is not supported (flat-memory module)\r\n", port);
+                                rv = ONLP_STATUS_E_UNSUPPORTED;
+                            }
+                            else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0){
                                 AIM_LOG_ERROR("Unable to read tx_disable status from port(%d): write bank to eeprom fail\r\n", 
                                         port);
                                 rv = ONLP_STATUS_E_INTERNAL;
                             }
-                            else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0 ){
-                                AIM_LOG_ERROR("Unable to read tx_disable status from port(%d): write page to eeprom fail\r\n", 
-                                        port);
+                            else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) < 0){
+                                AIM_LOG_ERROR("Failed to switch to Advertising Page on port(%d)\r\n", port);
+                                rv = ONLP_STATUS_E_INTERNAL;
+                            }
+                            else if((support_ctrls = onlp_sfpi_dev_readb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1)) < 0){
+                                AIM_LOG_ERROR("Failed to read Support Control on port(%d)\r\n", port);
+                                rv = ONLP_STATUS_E_INTERNAL;
+                            }
+                            else if (!(support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT)) {
+                                AIM_LOG_ERROR("Getting tx_disable from port(%d) is not supported\r\n", port);
+                                rv = ONLP_STATUS_E_UNSUPPORTED;
+                            }
+                            else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0){
+                                AIM_LOG_ERROR("Failed to set Bank 0 on port(%d)\r\n", port);
+                                rv = ONLP_STATUS_E_INTERNAL;
+                            }
+                            else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0){
+                                AIM_LOG_ERROR("Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)\r\n",
+                                        QSFP_DD_PAGE_LANE_CTRL, port);
                                 rv = ONLP_STATUS_E_INTERNAL;
                             }
                             else {
@@ -564,7 +603,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                                     rv = ONLP_STATUS_E_INTERNAL;
                                 }
                                 else{
-                                    *value = tx_dis;
+                                    *value = (tx_dis & 0xff);
                                     rv = ONLP_STATUS_OK;
                                 }
                             }
