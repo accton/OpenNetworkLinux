@@ -317,10 +317,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                         goto restore;
                     }
                     if (support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
-                        if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
-                            AIM_LOG_ERROR("Failed to set Bank 0 on port(%d)\r\n", port);
-                            goto restore;
-                        }
                         if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL)) < 0) {
                             AIM_LOG_ERROR("Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)\r\n", 
                                         QSFP_DD_PAGE_LANE_CTRL, port);
@@ -491,10 +487,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                         goto restore;
                     }
                     if (support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
-                        if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
-                            AIM_LOG_ERROR("Failed to set Bank 0 on port(%d)\r\n", port);
-                            goto restore;
-                        }
                         if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL)) < 0) {
                             AIM_LOG_ERROR("Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)\r\n",
                                         QSFP_DD_PAGE_LANE_CTRL, port);
