@@ -371,12 +371,10 @@ exit:
     return status;
 }
 
-static int accton_as5812_54x_fan_remove(struct platform_device *pdev)
+static void accton_as5812_54x_fan_remove(struct platform_device *pdev)
 {
     hwmon_device_unregister(fan_data->hwmon_dev);
     sysfs_remove_group(&fan_data->pdev->dev.kobj, &accton_as5812_54x_fan_group);
-
-    return 0;
 }
 
 #define DRVNAME "as5812_54x_fan"

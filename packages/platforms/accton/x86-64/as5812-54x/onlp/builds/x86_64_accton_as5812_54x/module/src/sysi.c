@@ -91,7 +91,7 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int   i, siz=NUM_OF_CPLD, v[NUM_OF_CPLD]={0};
     int   fd, len, nbytes = 10;
-    onlp_onie_info_t onie;
+    onlp_onie_info_t onie = {0};
     char  r_data[10]   = {0};
     char  fullpath[65] = {0};
     char *bios_ver = NULL;
