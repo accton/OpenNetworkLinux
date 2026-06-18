@@ -64,6 +64,8 @@ class OnlPlatform_x86_64_accton_as5835_54x_r0(OnlPlatformAccton,
                 ]
             )
 
+        subprocess.call('echo -2 | tee /sys/bus/i2c/drivers/pca954x/*-00*/idle_state > /dev/null', shell=True)
+
         # initialize SFP devices
         for port in range(1, 49):
             self.new_i2c_device('optoe2', 0x50, port+41)
@@ -73,7 +75,7 @@ class OnlPlatform_x86_64_accton_as5835_54x_r0(OnlPlatformAccton,
 
         # initialize QSFP devices
         for port in range(49, 55):
-            self.new_i2c_device('optoe1', 0x50, port-23)	
+            self.new_i2c_device('optoe1', 0x50, port-23)
             subprocess.call('echo 0 > /sys/bus/i2c/devices/3-0062/module_reset_%d' % port, shell=True)
 
         sfp_map = [28,29,26,30,31,27]
@@ -81,9 +83,9 @@ class OnlPlatform_x86_64_accton_as5835_54x_r0(OnlPlatformAccton,
             subprocess.call('echo port%d > /sys/bus/i2c/devices/%d-0050/port_name' % (i+49, sfp_map[i]), shell=True)
 
         #Set disable tx_disable to sfp port
-        for port in range(1, 39):       
+        for port in range(1, 39):
             subprocess.call('echo 0 > /sys/bus/i2c/devices/3-0061/module_tx_disable_%d' % port, shell=True)
-        for port in range(39, 49): 
+        for port in range(39, 49):
             subprocess.call('echo 0 > /sys/bus/i2c/devices/3-0062/module_tx_disable_%d' % port, shell=True)
 
         return True
