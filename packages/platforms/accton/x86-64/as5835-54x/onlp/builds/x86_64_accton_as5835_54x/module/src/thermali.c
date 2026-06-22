@@ -209,15 +209,16 @@ int
 onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
 {
     int   tid;
+    int   psu_id;
+    int   power_good = 0;
     VALIDATE(id);
     int coretemp_max = 0, coretemp_temp = 0;
 
     tid = ONLP_OID_ID_GET(id);
 
-    /* Set the onlp_oid_hdr_t and capabilities */		
+    /* Set the onlp_oid_hdr_t and capabilities */
     *info = linfo[tid];
 
-    *info = linfo[tid];
     if(tid == THERMAL_CPU_CORE) {
         for (size_t i = 0; i < sysfs_count; i++) {
             if (onlp_file_read_int(&coretemp_temp, temp_entries[i].name) < 0) {
@@ -233,6 +234,19 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
         return ONLP_STATUS_OK;
     }
 
-    return onlp_file_read_int(&info->mcelsius, devfiles__[tid]);							
+    /* PSU-attached thermal: if the parent PSU has no power, the ym1401
+     * PMBus sensor won't respond. Mark FAILED so a 0 mcelsius reading
+     * isn't misread as an actual temperature.
+     */
+    if (tid == THERMAL_1_ON_PSU1 || tid == THERMAL_1_ON_PSU2) {
+        psu_id = (tid == THERMAL_1_ON_PSU1) ? PSU1_ID : PSU2_ID;
+        if (psu_status_info_get(psu_id, "psu_power_good", &power_good) == ONLP_STATUS_OK &&
+            power_good != PSU_STATUS_POWER_GOOD) {
+            info->status |= ONLP_THERMAL_STATUS_FAILED;
+            return ONLP_STATUS_OK;
+        }
+    }
+
+    return onlp_file_read_int(&info->mcelsius, devfiles__[tid]);
 }
 

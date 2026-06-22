@@ -27,9 +27,6 @@
 #include <onlp/platformi/psui.h>
 #include "platform_lib.h"
 
-#define PSU_STATUS_PRESENT    1
-#define PSU_STATUS_POWER_GOOD 1
-
 #define PSU_NODE_MAX_INT_LEN  8
 #define PSU_NODE_MAX_PATH_LEN 64
 
@@ -40,7 +37,7 @@
         }                                       \
     } while(0)
 
-static int 
+int
 psu_status_info_get(int id, char *node, int *value)
 {
     int ret = 0;
@@ -124,9 +121,10 @@ int
 onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 {
     int val   = 0;
+    int power_good = 0;
     int ret   = ONLP_STATUS_OK;
     int index = ONLP_OID_ID_GET(id);
-    psu_type_t psu_type; 
+    psu_type_t psu_type;
 
     VALIDATE(id);
 
@@ -144,19 +142,15 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
     }
     info->status |= ONLP_PSU_STATUS_PRESENT;
 
-
-    /* Get power good status */
-    if (psu_status_info_get(index, "psu_power_good", &val) != 0) {
+    /* Get power good status (do not set FAILED here; we resolve UNPLUGGED
+     * vs. FAILED at the end of the function so the child fan/thermal OIDs
+     * can still be linked when the PSU bay is just unpowered).
+     */
+    if (psu_status_info_get(index, "psu_power_good", &power_good) != 0) {
         printf("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
     }
 
-    if (val != PSU_STATUS_POWER_GOOD) {
-        info->status |=  ONLP_PSU_STATUS_FAILED;
-    }
-
-
-    /* Get PSU type
-     */
+    /* Get PSU type */
     psu_type = get_psu_type(index, info->model, sizeof(info->model));
 
     switch (psu_type) {
@@ -166,14 +160,24 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         case PSU_TYPE_DC_B2F:
             ret = psu_ym1401_info_get(info, IS_DC_INPUT(psu_type));
             break;
-        case PSU_TYPE_UNKNOWN:  /* User insert a unknown PSU or unplugged.*/
-            info->status |= ONLP_PSU_STATUS_UNPLUGGED;
-            info->status &= ~ONLP_PSU_STATUS_FAILED;
+        case PSU_TYPE_UNKNOWN:
+            /* User inserted an unknown PSU or PSU is unplugged. Link the
+             * child fan and thermal OIDs so they still show in onlpdump
+             * even when this PSU bay reports no power.
+             */
+            info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
+            info->hdr.coids[1] = ONLP_THERMAL_ID_CREATE(index + CHASSIS_THERMAL_COUNT);
             ret = ONLP_STATUS_OK;
             break;
         default:
             ret = ONLP_STATUS_E_UNSUPPORTED;
             break;
+    }
+
+    if (power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+        info->status &= ~ONLP_PSU_STATUS_FAILED;
+        info->caps = 0;
     }
 
     return ret;

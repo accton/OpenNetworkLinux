@@ -182,8 +182,19 @@ static int
 _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
 {
 	int val = 0;
+	int power_good = 0;
 
 	info->status |= ONLP_FAN_STATUS_PRESENT;
+
+    /* When the parent PSU has no AC input the ym1401 PMBus stops
+     * responding, so direction / rpm reads would silently return 0.
+     * Surface that as PRESENT|FAILED instead of an all-zero entry.
+     */
+    if (psu_status_info_get(pid, "psu_power_good", &power_good) == ONLP_STATUS_OK &&
+        power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_FAN_STATUS_FAILED;
+        return ONLP_STATUS_OK;
+    }
 
     /* get fan direction
      */
@@ -199,7 +210,7 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
      */
     if (psu_ym1401_pmbus_info_get(pid, "psu_fan1_speed_rpm", &val) == ONLP_STATUS_OK) {
         info->rpm = val;
-	    info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;	    
+	    info->percentage = (info->rpm * 100) / MAX_PSU_FAN_SPEED;
     }
 
     return ONLP_STATUS_OK;
