@@ -85,4 +85,12 @@ class OnlPlatform_x86_64_accton_as5812_54x_r0(OnlPlatformAccton,
                 ('24c02', 0x57, 1 + bus_offset),
                 ]
             )
+
+        # Leave the pca9548 selected on the last-used channel rather than
+        # deselecting it after every i2c transaction. Without this, every
+        # downstream xfer on bus 57/58/61/62/63 toggles the mux on iSMT,
+        # which on 6.12 stresses the iSMT timing enough to occasionally
+        # drop transactions. Matches the AS5835 / SONiC convention.
+        subprocess.call('echo -2 | tee /sys/bus/i2c/drivers/pca954x/*-00*/idle_state > /dev/null', shell=True)
+
         return True
