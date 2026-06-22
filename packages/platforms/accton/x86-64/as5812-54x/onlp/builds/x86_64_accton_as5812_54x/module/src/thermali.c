@@ -123,6 +123,7 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
 {
     int local_id;
     int psu_id;
+    int power_good = 0;
     psu_type_t psu_type;
 
     VALIDATE(id);
@@ -137,7 +138,22 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
         return rv;
     }
 
+    /* Chassis sensors: nothing more to do, just read the value. */
+    if (local_id != THERMAL_1_ON_PSU1 && local_id != THERMAL_1_ON_PSU2) {
+        return onlp_file_read_int(&info->mcelsius, devfiles[local_id]);
+    }
+
+    /* PSU-attached thermal: if the PSU has no power, the cpr_4011 / ym2401
+     * PMBus sensor won't respond. Mark FAILED so a 0 mcelsius reading
+     * isn't mistaken for an actual temperature.
+     */
     psu_id   = local_id - THERMAL_1_ON_PSU1 + 1;
+    if (psu_status_info_get(psu_id, 1, "psu_power_good", &power_good) == 0 &&
+        power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_THERMAL_STATUS_FAILED;
+        return ONLP_STATUS_OK;
+    }
+
     psu_type = get_psu_type(psu_id, NULL, 0);
 
     if (psu_type == PSU_TYPE_AC_3YPOWER_F2B || psu_type == PSU_TYPE_AC_3YPOWER_B2F  ) {

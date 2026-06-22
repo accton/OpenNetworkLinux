@@ -73,8 +73,12 @@ typedef enum psu_type {
 
 psu_type_t get_psu_type(int id, char* modelname, int modelname_len);
 int psu_serial_number_get(int id, psu_type_t psu_type, char *serial, int serial_len);
+int psu_status_info_get(int id, int is_ac, char *node, int *value);
 int psu_ym2401_pmbus_info_get(int id, char *node, int *value);
 int psu_ym2401_pmbus_info_set(int id, char *node, int value);
+
+#define PSU_STATUS_PRESENT    1
+#define PSU_STATUS_POWER_GOOD 1
 
 #define DEBUG_MODE 0
 
