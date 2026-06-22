@@ -57,37 +57,6 @@
 
 #define BIOS_VER_PATH "/sys/devices/virtual/dmi/id/bios_version"
 
-/*
- * CPLDs live on the i801 SMBus, but its i2c bus number varies by kernel
- * (4.14 enumerated i801 as i2c-0, 6.12 lands iSMT first and pushes i801
- * to i2c-1). Resolve the bus by scanning for the first one that exposes
- * a 0x60 CPLD device, and cache the resulting "N-006X" strings.
- */
-#define CPLD_BUS_SCAN_MAX 16
-static char arr_cplddev_name[NUM_OF_CPLD][10];
-
-static int resolve_cpld_bus(void)
-{
-    static int resolved_bus = -1;
-    char probe[64];
-    int b;
-
-    if (resolved_bus >= 0) return resolved_bus;
-
-    for (b = 0; b < CPLD_BUS_SCAN_MAX; b++) {
-        snprintf(probe, sizeof(probe),
-                 "%s%d-0060/version", PREFIX_PATH_ON_CPLD_DEV, b);
-        if (access(probe, R_OK) == 0) {
-            resolved_bus = b;
-            snprintf(arr_cplddev_name[0], sizeof(arr_cplddev_name[0]), "%d-0060", b);
-            snprintf(arr_cplddev_name[1], sizeof(arr_cplddev_name[1]), "%d-0061", b);
-            snprintf(arr_cplddev_name[2], sizeof(arr_cplddev_name[2]), "%d-0062", b);
-            return b;
-        }
-    }
-    return -1;
-}
-
 const char*
 onlp_sysi_platform_get(void)
 {
@@ -120,19 +89,22 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
 {
     int   i, siz=NUM_OF_CPLD, v[NUM_OF_CPLD]={0};
     int   fd, len, nbytes = 10;
+    int   bus;
     onlp_onie_info_t onie = {0};
     char  r_data[10]   = {0};
     char  fullpath[65] = {0};
     char *bios_ver = NULL;
 
-    if (resolve_cpld_bus() < 0) {
+    bus = as5812_54x_cpld_bus();
+    if (bus < 0) {
         AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
         return ONLP_STATUS_E_INTERNAL;
     }
 
     for (i=0; i<siz; i++)
     {
-        sprintf(fullpath, "%s%s/version", PREFIX_PATH_ON_CPLD_DEV, arr_cplddev_name[i]);
+        snprintf(fullpath, sizeof(fullpath),
+                 "%s%d-006%d/version", PREFIX_PATH_ON_CPLD_DEV, bus, i);
         OPEN_READ_FILE(fd,fullpath,r_data,nbytes,len);
         v[i]=atoi(r_data);
         memset(r_data, 0, len);
@@ -152,8 +124,12 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
     else
         printf("This CPLD numbers are wrong !! \n");
 
+    /* If onie decode failed on both paths, onie.onie_version stays NULL;
+     * passing NULL to %s is UB. Use a placeholder. Same for bios_ver if
+     * the DMI sysfs read failed. */
     pi->other_versions = aim_fstrdup("\r\n\t   BIOS: %s\r\n\t   ONIE: %s",
-                                    bios_ver, onie.onie_version);
+                                    bios_ver ? bios_ver : "(unknown)",
+                                    onie.onie_version ? onie.onie_version : "(unknown)");
 
     AIM_FREE_IF_PTR(bios_ver);
 

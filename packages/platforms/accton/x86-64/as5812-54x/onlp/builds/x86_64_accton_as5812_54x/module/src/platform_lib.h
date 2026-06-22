@@ -77,6 +77,16 @@ int psu_status_info_get(int id, int is_ac, char *node, int *value);
 int psu_ym2401_pmbus_info_get(int id, char *node, int *value);
 int psu_ym2401_pmbus_info_set(int id, char *node, int value);
 
+/*
+ * Resolve the i2c bus number that hosts the three CPLDs (0x60/0x61/0x62).
+ * AS5812 wires the CPLDs to the i801 SMBus controller, whose i2c index
+ * shifts between kernels: 4.14 enumerated i801 as i2c-0, 6.12 lands iSMT
+ * first and pushes i801 to i2c-1. The result is cached after the first
+ * successful resolution. Returns -1 if no CPLD at 0x60 is found on any
+ * bus 0..15. Not thread-safe; the first caller initialises the cache.
+ */
+int as5812_54x_cpld_bus(void);
+
 #define PSU_STATUS_PRESENT    1
 #define PSU_STATUS_POWER_GOOD 1
 

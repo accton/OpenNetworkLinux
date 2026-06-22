@@ -103,10 +103,6 @@ psu_cpr_4011_info_get(onlp_psu_info_t* info)
     /* Set capability
      */
     info->caps = ONLP_PSU_CAPS_AC;
-    
-	if (info->status & ONLP_PSU_STATUS_FAILED) {
-	    return ONLP_STATUS_OK;
-	}
 
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
@@ -155,10 +151,6 @@ psu_um400d_info_get(onlp_psu_info_t* info)
      */
     info->caps = ONLP_PSU_CAPS_DC48;
 
-    if (info->status & ONLP_PSU_STATUS_FAILED) {
-        return ONLP_STATUS_OK;
-    }
-
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
 
@@ -174,10 +166,6 @@ psu_ym2401_info_get(onlp_psu_info_t* info)
     /* Set capability
      */
     info->caps = ONLP_PSU_CAPS_AC;
-    
-    if (info->status & ONLP_PSU_STATUS_FAILED) {
-        return ONLP_STATUS_OK;
-    }
 
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);

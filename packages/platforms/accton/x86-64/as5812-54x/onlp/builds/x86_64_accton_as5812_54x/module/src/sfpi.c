@@ -26,9 +26,9 @@
 #include <onlp/platformi/sfpi.h>
 #include <onlplib/i2c.h>
 #include <onlplib/file.h>
-#include <unistd.h>
 #include "x86_64_accton_as5812_54x_int.h"
 #include "x86_64_accton_as5812_54x_log.h"
+#include "platform_lib.h"
 
 #define SFP_PORT_MIN 0
 #define SFP_PORT_MAX 47
@@ -58,33 +58,6 @@
 #define CPLD_MUX_BUS_START_INDEX 2
 
 #define PORT_EEPROM_FORMAT              "/sys/bus/i2c/devices/%d-0050/eeprom"
-
-/*
- * The CPLDs are wired to the i801 SMBus controller; its i2c bus number
- * shifts between kernels (4.14: i2c-0, 6.12: i2c-1). Resolve once by
- * scanning sysfs for the CPLD at 0x60, cache, and use that bus index in
- * the per-CPLD sysfs path formats.
- */
-#define CPLD_BUS_SCAN_MAX 16
-
-static int cpld_bus(void)
-{
-    static int resolved = -1;
-    char probe[64];
-    int b;
-
-    if (resolved >= 0) return resolved;
-
-    for (b = 0; b < CPLD_BUS_SCAN_MAX; b++) {
-        snprintf(probe, sizeof(probe),
-                 "/sys/bus/i2c/devices/%d-0060/version", b);
-        if (access(probe, R_OK) == 0) {
-            resolved = b;
-            return b;
-        }
-    }
-    return -1;
-}
 
 #define MODULE_PRESENT_FORMAT		    "/sys/bus/i2c/devices/%d-00%d/module_present_%d"
 #define MODULE_RXLOS_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_rx_los_%d"
@@ -260,7 +233,7 @@ onlp_sfpi_is_present(int port)
      */
     int present;
     int addr = (port < 24) ? 61 : 62;
-    int bus = cpld_bus();
+    int bus = as5812_54x_cpld_bus();
 
     if (bus < 0) {
         AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
@@ -280,7 +253,7 @@ onlp_sfpi_presence_bitmap_get(onlp_sfp_bitmap_t* dst)
     uint32_t bytes[7];
     FILE* fp;
     char path[64];
-    int bus = cpld_bus();
+    int bus = as5812_54x_cpld_bus();
 
     if (bus < 0) {
         AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
@@ -348,7 +321,7 @@ onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
     uint32_t *ptr = bytes;
     FILE* fp;
     char path[64];
-    int bus = cpld_bus();
+    int bus = as5812_54x_cpld_bus();
 
     /* Read present status of port 0~23 */
     int addr, i = 0;
@@ -488,7 +461,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
     VALIDATE_PORT(port);
 
     int addr = (port < 24) ? 61 : 62;
-    int bus = cpld_bus();
+    int bus = as5812_54x_cpld_bus();
 
     if (bus < 0) {
         AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
@@ -575,7 +548,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
     VALIDATE_PORT(port);
 
     int addr = (port < 24) ? 61 : 62;
-    int bus = cpld_bus();
+    int bus = as5812_54x_cpld_bus();
 
     if (bus < 0) {
         AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
