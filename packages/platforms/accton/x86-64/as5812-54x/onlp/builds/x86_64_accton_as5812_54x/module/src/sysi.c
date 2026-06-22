@@ -57,12 +57,36 @@
 
 #define BIOS_VER_PATH "/sys/devices/virtual/dmi/id/bios_version"
 
-static char arr_cplddev_name[NUM_OF_CPLD][10] =
+/*
+ * CPLDs live on the i801 SMBus, but its i2c bus number varies by kernel
+ * (4.14 enumerated i801 as i2c-0, 6.12 lands iSMT first and pushes i801
+ * to i2c-1). Resolve the bus by scanning for the first one that exposes
+ * a 0x60 CPLD device, and cache the resulting "N-006X" strings.
+ */
+#define CPLD_BUS_SCAN_MAX 16
+static char arr_cplddev_name[NUM_OF_CPLD][10];
+
+static int resolve_cpld_bus(void)
 {
- "0-0060",
- "0-0061",
- "0-0062"
-};
+    static int resolved_bus = -1;
+    char probe[64];
+    int b;
+
+    if (resolved_bus >= 0) return resolved_bus;
+
+    for (b = 0; b < CPLD_BUS_SCAN_MAX; b++) {
+        snprintf(probe, sizeof(probe),
+                 "%s%d-0060/version", PREFIX_PATH_ON_CPLD_DEV, b);
+        if (access(probe, R_OK) == 0) {
+            resolved_bus = b;
+            snprintf(arr_cplddev_name[0], sizeof(arr_cplddev_name[0]), "%d-0060", b);
+            snprintf(arr_cplddev_name[1], sizeof(arr_cplddev_name[1]), "%d-0061", b);
+            snprintf(arr_cplddev_name[2], sizeof(arr_cplddev_name[2]), "%d-0062", b);
+            return b;
+        }
+    }
+    return -1;
+}
 
 const char*
 onlp_sysi_platform_get(void)
@@ -74,7 +98,12 @@ int
 onlp_sysi_onie_data_get(uint8_t** data, int* size)
 {
     uint8_t* rdata = aim_zmalloc(256);
-    if(onlp_file_read(rdata, 256, size, IDPROM_PATH) == ONLP_STATUS_OK) {
+    if(onlp_file_read(rdata, 256, size, IDPROM_PATH_1) == ONLP_STATUS_OK) {
+        if(*size == 256) {
+            *data = rdata;
+            return ONLP_STATUS_OK;
+        }
+    } else if(onlp_file_read(rdata, 256, size, IDPROM_PATH_2) == ONLP_STATUS_OK) {
         if(*size == 256) {
             *data = rdata;
             return ONLP_STATUS_OK;
@@ -96,6 +125,11 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
     char  fullpath[65] = {0};
     char *bios_ver = NULL;
 
+    if (resolve_cpld_bus() < 0) {
+        AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
+        return ONLP_STATUS_E_INTERNAL;
+    }
+
     for (i=0; i<siz; i++)
     {
         sprintf(fullpath, "%s%s/version", PREFIX_PATH_ON_CPLD_DEV, arr_cplddev_name[i]);
@@ -105,7 +139,9 @@ onlp_sysi_platform_info_get(onlp_platform_info_t* pi)
     }
 
     onlp_file_read_str(&bios_ver, BIOS_VER_PATH);
-    onlp_onie_decode_file(&onie, IDPROM_PATH);
+    if (onlp_onie_decode_file(&onie, IDPROM_PATH_1) != ONLP_STATUS_OK) {
+        onlp_onie_decode_file(&onie, IDPROM_PATH_2);
+    }
 
     if(3==NUM_OF_CPLD)
         pi->cpld_versions = aim_fstrdup(

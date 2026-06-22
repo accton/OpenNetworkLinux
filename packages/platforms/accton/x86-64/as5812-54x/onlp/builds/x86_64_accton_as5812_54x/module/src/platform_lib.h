@@ -54,7 +54,8 @@
 #define PSU1_AC_3YPOWER_EEPROM_NODE(node) PSU1_AC_3YPOWER_EEPROM_PREFIX#node
 #define PSU2_AC_3YPOWER_EEPROM_NODE(node) PSU2_AC_3YPOWER_EEPROM_PREFIX#node
 
-#define IDPROM_PATH "/sys/bus/i2c/devices/1-0057/eeprom"
+#define IDPROM_PATH_1 "/sys/bus/i2c/devices/0-0057/eeprom"
+#define IDPROM_PATH_2 "/sys/bus/i2c/devices/1-0057/eeprom"
 
 int deviceNodeWriteInt(char *filename, int value, int data_len);
 int deviceNodeReadBinary(char *filename, char *buffer, int buf_size, int data_len);

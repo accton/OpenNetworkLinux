@@ -197,6 +197,27 @@ static const struct attribute_group as5812_54x_psu_group = {
     .attrs = as5812_54x_psu_attributes,
 };
 
+static umode_t as5812_54x_psu_is_visible(const void *drvdata,
+                  enum hwmon_sensor_types type,
+                  u32 attr, int channel)
+{
+    return 0;
+}
+
+static const struct hwmon_channel_info *as5812_54x_psu_info[] = {
+    HWMON_CHANNEL_INFO(power, HWMON_P_ENABLE),
+    NULL,
+};
+
+static const struct hwmon_ops as5812_54x_psu_hwmon_ops = {
+    .is_visible = as5812_54x_psu_is_visible,
+};
+
+static const struct hwmon_chip_info as5812_54x_psu_chip_info = {
+    .ops = &as5812_54x_psu_hwmon_ops,
+    .info = as5812_54x_psu_info,
+};
+
 static int as5812_54x_psu_probe(struct i2c_client *client)
 {
     const struct i2c_device_id *dev_id = i2c_client_get_device_id(client);
@@ -228,7 +249,7 @@ static int as5812_54x_psu_probe(struct i2c_client *client)
     }
 
     data->hwmon_dev = hwmon_device_register_with_info(&client->dev, "as5812_54x_psu",
-                                                      NULL, NULL, NULL);
+                                                      NULL, &as5812_54x_psu_chip_info, NULL);
     if (IS_ERR(data->hwmon_dev)) {
         status = PTR_ERR(data->hwmon_dev);
         goto exit_remove;
