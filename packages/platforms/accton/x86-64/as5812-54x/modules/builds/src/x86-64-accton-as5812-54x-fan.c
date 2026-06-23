@@ -260,6 +260,27 @@ static const struct attribute_group accton_as5812_54x_fan_group = {
     .attrs = accton_as5812_54x_fan_attributes,
 };
 
+static umode_t accton_as5812_54x_fan_is_visible(const void *drvdata,
+                  enum hwmon_sensor_types type,
+                  u32 attr, int channel)
+{
+    return 0;
+}
+
+static const struct hwmon_channel_info *accton_as5812_54x_fan_info[] = {
+    HWMON_CHANNEL_INFO(fan, HWMON_F_INPUT),
+    NULL,
+};
+
+static const struct hwmon_ops accton_as5812_54x_fan_hwmon_ops = {
+    .is_visible = accton_as5812_54x_fan_is_visible,
+};
+
+static const struct hwmon_chip_info accton_as5812_54x_fan_chip_info = {
+    .ops = &accton_as5812_54x_fan_hwmon_ops,
+    .info = accton_as5812_54x_fan_info,
+};
+
 static int accton_as5812_54x_fan_read_value(u8 reg)
 {
     return as5812_54x_cpld_read(0x60, reg);
@@ -355,7 +376,7 @@ static int accton_as5812_54x_fan_probe(struct platform_device *pdev)
     }
 
     fan_data->hwmon_dev = hwmon_device_register_with_info(&pdev->dev, "as5812_54x_fan",
-                                                      NULL, NULL, NULL);
+                                                      NULL, &accton_as5812_54x_fan_chip_info, NULL);
 	if (IS_ERR(fan_data->hwmon_dev)) {
 		status = PTR_ERR(fan_data->hwmon_dev);
 		goto exit_remove;
@@ -371,12 +392,10 @@ exit:
     return status;
 }
 
-static int accton_as5812_54x_fan_remove(struct platform_device *pdev)
+static void accton_as5812_54x_fan_remove(struct platform_device *pdev)
 {
     hwmon_device_unregister(fan_data->hwmon_dev);
     sysfs_remove_group(&fan_data->pdev->dev.kobj, &accton_as5812_54x_fan_group);
-
-    return 0;
 }
 
 #define DRVNAME "as5812_54x_fan"

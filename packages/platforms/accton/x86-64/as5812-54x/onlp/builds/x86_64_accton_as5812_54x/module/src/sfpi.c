@@ -28,6 +28,7 @@
 #include <onlplib/file.h>
 #include "x86_64_accton_as5812_54x_int.h"
 #include "x86_64_accton_as5812_54x_log.h"
+#include "platform_lib.h"
 
 #define SFP_PORT_MIN 0
 #define SFP_PORT_MAX 47
@@ -57,16 +58,15 @@
 #define CPLD_MUX_BUS_START_INDEX 2
 
 #define PORT_EEPROM_FORMAT              "/sys/bus/i2c/devices/%d-0050/eeprom"
-#define MODULE_PRESENT_FORMAT		    "/sys/bus/i2c/devices/0-00%d/module_present_%d"
-#define MODULE_RXLOS_FORMAT             "/sys/bus/i2c/devices/0-00%d/module_rx_los_%d"
-#define MODULE_TXFAULT_FORMAT           "/sys/bus/i2c/devices/0-00%d/module_tx_fault_%d"
-#define MODULE_TXDISABLE_FORMAT         "/sys/bus/i2c/devices/0-00%d/module_tx_disable_%d"
-#define MODULE_RESET_FORMAT             "/sys/bus/i2c/devices/0-00%d/module_reset_%d"
-#define MODULE_LPMODE_FORMAT            "/sys/bus/i2c/devices/0-00%d/module_lpmode_%d"
-#define MODULE_PRESENT_ALL_ATTR_CPLD2	"/sys/bus/i2c/devices/0-0061/module_present_all"
-#define MODULE_PRESENT_ALL_ATTR_CPLD3	"/sys/bus/i2c/devices/0-0062/module_present_all"
-#define MODULE_RXLOS_ALL_ATTR_CPLD2	    "/sys/bus/i2c/devices/0-0061/module_rx_los_all"
-#define MODULE_RXLOS_ALL_ATTR_CPLD3	    "/sys/bus/i2c/devices/0-0062/module_rx_los_all"
+
+#define MODULE_PRESENT_FORMAT		    "/sys/bus/i2c/devices/%d-00%d/module_present_%d"
+#define MODULE_RXLOS_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_rx_los_%d"
+#define MODULE_TXFAULT_FORMAT           "/sys/bus/i2c/devices/%d-00%d/module_tx_fault_%d"
+#define MODULE_TXDISABLE_FORMAT         "/sys/bus/i2c/devices/%d-00%d/module_tx_disable_%d"
+#define MODULE_RESET_FORMAT             "/sys/bus/i2c/devices/%d-00%d/module_reset_%d"
+#define MODULE_LPMODE_FORMAT            "/sys/bus/i2c/devices/%d-00%d/module_lpmode_%d"
+#define MODULE_PRESENT_ALL_FORMAT       "/sys/bus/i2c/devices/%d-00%d/module_present_all"
+#define MODULE_RXLOS_ALL_FORMAT         "/sys/bus/i2c/devices/%d-00%d/module_rx_los_all"
 
 /*QSFP tx_disable*/
 #define PORT_EEPROM_DEVADDR             0x50
@@ -233,8 +233,13 @@ onlp_sfpi_is_present(int port)
      */
     int present;
     int addr = (port < 24) ? 61 : 62;
-    
-	if (onlp_file_read_int(&present, MODULE_PRESENT_FORMAT, addr, front_port_to_driver_port(port)) < 0) {
+    int bus = as5812_54x_cpld_bus();
+
+    if (bus < 0) {
+        AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
+        return ONLP_STATUS_E_INTERNAL;
+    }
+    if (onlp_file_read_int(&present, MODULE_PRESENT_FORMAT, bus, addr, front_port_to_driver_port(port)) < 0) {
         AIM_LOG_ERROR("Unable to read present status from port(%d)\r\n", port);
         return ONLP_STATUS_E_INTERNAL;
     }
@@ -247,9 +252,17 @@ onlp_sfpi_presence_bitmap_get(onlp_sfp_bitmap_t* dst)
 {
     uint32_t bytes[7];
     FILE* fp;
+    char path[64];
+    int bus = as5812_54x_cpld_bus();
+
+    if (bus < 0) {
+        AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
+        return ONLP_STATUS_E_INTERNAL;
+    }
 
     /* Read present status of port 0~23 */
-    fp = fopen(MODULE_PRESENT_ALL_ATTR_CPLD2, "r");
+    snprintf(path, sizeof(path), MODULE_PRESENT_ALL_FORMAT, bus, 61);
+    fp = fopen(path, "r");
     if(fp == NULL) {
         AIM_LOG_ERROR("Unable to open the module_present_all device file of CPLD2.");
         return ONLP_STATUS_E_INTERNAL;
@@ -264,7 +277,8 @@ onlp_sfpi_presence_bitmap_get(onlp_sfp_bitmap_t* dst)
     }
 
     /* Read present status of port 24~53 */
-    fp = fopen(MODULE_PRESENT_ALL_ATTR_CPLD3, "r");
+    snprintf(path, sizeof(path), MODULE_PRESENT_ALL_FORMAT, bus, 62);
+    fp = fopen(path, "r");
     if(fp == NULL) {
         AIM_LOG_ERROR("Unable to open the module_present_all device file of CPLD3.");
         return ONLP_STATUS_E_INTERNAL;
@@ -306,17 +320,20 @@ onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
     uint32_t bytes[6];
     uint32_t *ptr = bytes;
     FILE* fp;
+    char path[64];
+    int bus = as5812_54x_cpld_bus();
 
     /* Read present status of port 0~23 */
     int addr, i = 0;
 
+    if (bus < 0) {
+        AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
+        return ONLP_STATUS_E_INTERNAL;
+    }
+
     for (addr = 61; addr <= 62; addr++) {
-        if (addr == 61) {
-            fp = fopen(MODULE_RXLOS_ALL_ATTR_CPLD2, "r");
-        }
-        else {
-            fp = fopen(MODULE_RXLOS_ALL_ATTR_CPLD3, "r");
-        }
+        snprintf(path, sizeof(path), MODULE_RXLOS_ALL_FORMAT, bus, addr);
+        fp = fopen(path, "r");
 
         if(fp == NULL) {
             AIM_LOG_ERROR("Unable to open the module_rx_los_all device file of CPLD(0x%d)", addr);
@@ -444,6 +461,12 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
     VALIDATE_PORT(port);
 
     int addr = (port < 24) ? 61 : 62;
+    int bus = as5812_54x_cpld_bus();
+
+    if (bus < 0) {
+        AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
+        return ONLP_STATUS_E_INTERNAL;
+    }
 
     switch(control)
         {
@@ -454,7 +477,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                 if(present == 1)
                 {
                     if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
-                        if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, addr, (port+1)) < 0) {
+                        if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT, bus, addr, (port+1)) < 0) {
                             AIM_LOG_ERROR("Unable to write tx_disable status to port(%d)\r\n", port);
                             rv = ONLP_STATUS_E_INTERNAL;
                         }
@@ -484,7 +507,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
         case ONLP_SFP_CONTROL_RESET:
             {
                 VALIDATE_QSFP(port);
-                if (onlp_file_write_int(value, MODULE_RESET_FORMAT, addr, (port+1)) < 0) {
+                if (onlp_file_write_int(value, MODULE_RESET_FORMAT, bus, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -497,7 +520,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
         case ONLP_SFP_CONTROL_LP_MODE:
             {
                 VALIDATE_QSFP(port);
-                if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT, addr, (port+1)) < 0) {
+                if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT, bus, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to write LP mode status to port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -525,13 +548,19 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
     VALIDATE_PORT(port);
 
     int addr = (port < 24) ? 61 : 62;
+    int bus = as5812_54x_cpld_bus();
+
+    if (bus < 0) {
+        AIM_LOG_ERROR("Unable to locate CPLD i2c bus");
+        return ONLP_STATUS_E_INTERNAL;
+    }
 
     switch(control)
         {
         case ONLP_SFP_CONTROL_RX_LOS:
             {
                 VALIDATE_SFP(port);
-            	if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT, addr, (port+1)) < 0) {
+            	if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT, bus, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -544,7 +573,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
         case ONLP_SFP_CONTROL_TX_FAULT:
             {
                 VALIDATE_SFP(port);
-            	if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, addr, (port+1)) < 0) {
+            	if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT, bus, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -560,7 +589,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                 present = onlp_sfpi_is_present(port);
                 if(present == 1){
                     if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
-                        if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, addr, (port+1)) < 0) {
+                        if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT, bus, addr, (port+1)) < 0) {
                             AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n", port);
                             rv = ONLP_STATUS_E_INTERNAL;
                         }
@@ -591,7 +620,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
         case ONLP_SFP_CONTROL_RESET: 
             {
                 VALIDATE_QSFP(port);
-                if (onlp_file_read_int(value, MODULE_RESET_FORMAT, addr, (port+1)) < 0) {
+                if (onlp_file_read_int(value, MODULE_RESET_FORMAT, bus, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }
@@ -604,7 +633,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
         case ONLP_SFP_CONTROL_LP_MODE: 
             {
                 VALIDATE_QSFP(port);
-                if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT, addr, (port+1)) < 0) {
+                if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT, bus, addr, (port+1)) < 0) {
                     AIM_LOG_ERROR("Unable to read LP mode status from port(%d)\r\n", port);
                     rv = ONLP_STATUS_E_INTERNAL;
                 }

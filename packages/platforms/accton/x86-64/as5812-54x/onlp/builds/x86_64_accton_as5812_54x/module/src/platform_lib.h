@@ -54,7 +54,8 @@
 #define PSU1_AC_3YPOWER_EEPROM_NODE(node) PSU1_AC_3YPOWER_EEPROM_PREFIX#node
 #define PSU2_AC_3YPOWER_EEPROM_NODE(node) PSU2_AC_3YPOWER_EEPROM_PREFIX#node
 
-#define IDPROM_PATH "/sys/devices/pci0000:00/0000:00:13.0/i2c-1/1-0057/eeprom"
+#define IDPROM_PATH_1 "/sys/bus/i2c/devices/0-0057/eeprom"
+#define IDPROM_PATH_2 "/sys/bus/i2c/devices/1-0057/eeprom"
 
 int deviceNodeWriteInt(char *filename, int value, int data_len);
 int deviceNodeReadBinary(char *filename, char *buffer, int buf_size, int data_len);
@@ -72,8 +73,22 @@ typedef enum psu_type {
 
 psu_type_t get_psu_type(int id, char* modelname, int modelname_len);
 int psu_serial_number_get(int id, psu_type_t psu_type, char *serial, int serial_len);
+int psu_status_info_get(int id, int is_ac, char *node, int *value);
 int psu_ym2401_pmbus_info_get(int id, char *node, int *value);
 int psu_ym2401_pmbus_info_set(int id, char *node, int value);
+
+/*
+ * Resolve the i2c bus number that hosts the three CPLDs (0x60/0x61/0x62).
+ * AS5812 wires the CPLDs to the i801 SMBus controller, whose i2c index
+ * shifts between kernels: 4.14 enumerated i801 as i2c-0, 6.12 lands iSMT
+ * first and pushes i801 to i2c-1. The result is cached after the first
+ * successful resolution. Returns -1 if no CPLD at 0x60 is found on any
+ * bus 0..15. Not thread-safe; the first caller initialises the cache.
+ */
+int as5812_54x_cpld_bus(void);
+
+#define PSU_STATUS_PRESENT    1
+#define PSU_STATUS_POWER_GOOD 1
 
 #define DEBUG_MODE 0
 

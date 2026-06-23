@@ -216,6 +216,27 @@ static const struct attribute_group cpr_4011_4mxx_group = {
 };
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+static umode_t cpr_4011_4mxx_is_visible(const void *drvdata,
+                  enum hwmon_sensor_types type,
+                  u32 attr, int channel)
+{
+    return 0;
+}
+
+static const struct hwmon_channel_info *cpr_4011_4mxx_info[] = {
+    HWMON_CHANNEL_INFO(power, HWMON_P_ENABLE),
+    NULL,
+};
+
+static const struct hwmon_ops cpr_4011_4mxx_hwmon_ops = {
+    .is_visible = cpr_4011_4mxx_is_visible,
+};
+
+static const struct hwmon_chip_info cpr_4011_4mxx_chip_info = {
+    .ops = &cpr_4011_4mxx_hwmon_ops,
+    .info = cpr_4011_4mxx_info,
+};
+
 static int cpr_4011_4mxx_probe(struct i2c_client *client)
 #else
 static int cpr_4011_4mxx_probe(struct i2c_client *client,
@@ -249,7 +270,10 @@ static int cpr_4011_4mxx_probe(struct i2c_client *client,
         goto exit_free;
     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+    data->hwmon_dev = hwmon_device_register_with_info(&client->dev, "cpr_4011_4mxx",
+                                                      NULL, &cpr_4011_4mxx_chip_info, NULL);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0)
     data->hwmon_dev = hwmon_device_register_with_info(&client->dev, "cpr_4011_4mxx",
                                                       NULL, NULL, NULL);
 #else

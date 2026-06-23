@@ -28,9 +28,6 @@
 #include <string.h>
 #include "platform_lib.h"
 
-#define PSU_STATUS_PRESENT    1
-#define PSU_STATUS_POWER_GOOD 1
-
 #define PSU_NODE_MAX_INT_LEN  8
 #define PSU_NODE_MAX_PATH_LEN 64
 
@@ -41,7 +38,7 @@
         }                                       \
     } while(0)
 
-static int 
+int
 psu_status_info_get(int id, int is_ac, char *node, int *value)
 {
     int ret = 0;
@@ -106,10 +103,6 @@ psu_cpr_4011_info_get(onlp_psu_info_t* info)
     /* Set capability
      */
     info->caps = ONLP_PSU_CAPS_AC;
-    
-	if (info->status & ONLP_PSU_STATUS_FAILED) {
-	    return ONLP_STATUS_OK;
-	}
 
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
@@ -158,10 +151,6 @@ psu_um400d_info_get(onlp_psu_info_t* info)
      */
     info->caps = ONLP_PSU_CAPS_DC48;
 
-    if (info->status & ONLP_PSU_STATUS_FAILED) {
-        return ONLP_STATUS_OK;
-    }
-
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
 
@@ -177,10 +166,6 @@ psu_ym2401_info_get(onlp_psu_info_t* info)
     /* Set capability
      */
     info->caps = ONLP_PSU_CAPS_AC;
-    
-    if (info->status & ONLP_PSU_STATUS_FAILED) {
-        return ONLP_STATUS_OK;
-    }
 
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
@@ -223,9 +208,10 @@ int
 onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 {
     int val   = 0;
+    int power_good = 0;
     int   ret = ONLP_STATUS_OK;
     int index = ONLP_OID_ID_GET(id);
-    psu_type_t psu_type; 
+    psu_type_t psu_type;
 
     VALIDATE(id);
 
@@ -242,21 +228,16 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         return ONLP_STATUS_OK;
     }
     info->status |= ONLP_PSU_STATUS_PRESENT;
-    
 
-    /* Get power good status */
-    if (psu_status_info_get(index, 1, "psu_power_good", &val) != 0) {
+    /* Get power good status (do not early-return on no-power: the PSU bay
+     * is still physically present and we want the caller to see UNPLUGGED
+     * rather than FAILED, plus keep the child fan/thermal OIDs linked).
+     */
+    if (psu_status_info_get(index, 1, "psu_power_good", &power_good) != 0) {
         printf("Unable to read PSU(%d) node(psu_power_good)\r\n", index);
     }
 
-    if (val != PSU_STATUS_POWER_GOOD) {
-        info->status |=  ONLP_PSU_STATUS_FAILED;
-        return 0;
-    }
-
-
-    /* Get PSU type
-     */
+    /* Get PSU type */
     psu_type = get_psu_type(index, info->model, sizeof(info->model));
 
     switch (psu_type) {
@@ -272,11 +253,25 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         case PSU_TYPE_DC_48V_B2F:
             ret = psu_um400d_info_get(info);
             break;
+        case PSU_TYPE_UNKNOWN:
+            /* Power off / EEPROM unreadable. Still link the child fan and
+             * thermal OIDs so they remain visible in onlpdump output.
+             */
+            info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
+            info->hdr.coids[1] = ONLP_THERMAL_ID_CREATE(index + CHASSIS_THERMAL_COUNT);
+            ret = ONLP_STATUS_OK;
+            break;
         default:
             ret = ONLP_STATUS_E_UNSUPPORTED;
             break;
     }
     psu_serial_number_get(index, psu_type, info->serial, sizeof(info->serial));
+
+    if (power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+        info->status &= ~ONLP_PSU_STATUS_FAILED;
+        info->caps = 0;
+    }
 
     return ret;
 }

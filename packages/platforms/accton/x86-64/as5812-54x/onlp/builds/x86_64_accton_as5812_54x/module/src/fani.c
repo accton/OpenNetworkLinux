@@ -222,6 +222,7 @@ static int
 _onlp_fani_info_get_fan_on_psu(int local_id, onlp_fan_info_t* info)
 {
     int   psu_id;
+    int   power_good = 0;
     int   fd, len, nbytes = 10;
     char  r_data[10]   = {0};
     char  fullpath[PATH_MAX] = {0};
@@ -231,6 +232,17 @@ _onlp_fani_info_get_fan_on_psu(int local_id, onlp_fan_info_t* info)
      */
     psu_id    = (local_id-FAN_1_ON_PSU1) + 1;
     DEBUG_PRINT("[psu_id: %d]", psu_id);
+
+    /* When the PSU has no AC input the cpr_4011 / ym2401 PMBus does not
+     * respond, so model name reads back empty and get_psu_type() returns
+     * UNKNOWN. Surface the fan slot as PRESENT|FAILED in that case so it
+     * doesn't quietly come back as an all-zero "status: 0x0" entry.
+     */
+    if (psu_status_info_get(psu_id, 1, "psu_power_good", &power_good) == 0 &&
+        power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_FAN_STATUS_PRESENT | ONLP_FAN_STATUS_FAILED;
+        return ONLP_STATUS_OK;
+    }
 
     psu_type  = get_psu_type(psu_id, NULL, 0); /* psu_id = 1 , present PSU1. pus_id =2 , present PSU2 */
     DEBUG_PRINT("[psu_type: %d]", psu_type);

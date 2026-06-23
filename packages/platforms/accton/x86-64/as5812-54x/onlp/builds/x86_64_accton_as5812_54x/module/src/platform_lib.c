@@ -293,3 +293,24 @@ int psu_serial_number_get(int id, psu_type_t psu_type, char *serial, int serial_
     serial[PSU_SERIAL_NUMBER_LEN] = '\0';
     return ONLP_STATUS_OK;
 }
+
+#define CPLD_BUS_SCAN_MAX 16
+
+int as5812_54x_cpld_bus(void)
+{
+    static int resolved = -1;
+    char probe[64];
+    int b;
+
+    if (resolved >= 0) return resolved;
+
+    for (b = 0; b < CPLD_BUS_SCAN_MAX; b++) {
+        snprintf(probe, sizeof(probe),
+                 "/sys/bus/i2c/devices/%d-0060/version", b);
+        if (access(probe, R_OK) == 0) {
+            resolved = b;
+            return b;
+        }
+    }
+    return -1;
+}

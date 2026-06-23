@@ -1081,11 +1081,11 @@ static ssize_t show_version(struct device *dev, struct device_attribute *attr, c
 /*
  * I2C init/probing/exit functions
  */
-static int as5812_54x_cpld_mux_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static int as5812_54x_cpld_mux_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *id = i2c_client_get_device_id(client);
     struct i2c_adapter *adap = to_i2c_adapter(client->dev.parent);
-	int num, force, class;
+	int num, force;
 	struct i2c_mux_core *muxc;
 	struct as5812_54x_cpld_data *data;
     int ret = 0;
@@ -1110,9 +1110,8 @@ static int as5812_54x_cpld_mux_probe(struct i2c_client *client,
 	/* Now create an adapter for each channel */
 	for (num = 0; num < chips[data->type].nchans; num++) {
 		force = 0;			  /* dynamic adap number */
-		class = 0;			  /* no class by default */
 
-		ret = i2c_mux_add_adapter(muxc, force, num, class);
+		ret = i2c_mux_add_adapter(muxc, force, num);
 
 		if (ret) {
 			dev_err(&client->dev,
@@ -1166,7 +1165,7 @@ add_mux_failed:
 	return ret;
 }
 
-static int as5812_54x_cpld_mux_remove(struct i2c_client *client)
+static void as5812_54x_cpld_mux_remove(struct i2c_client *client)
 {
     struct i2c_mux_core *muxc = i2c_get_clientdata(client);
     struct as5812_54x_cpld_data *data = i2c_mux_priv(muxc);
@@ -1194,8 +1193,6 @@ static int as5812_54x_cpld_mux_remove(struct i2c_client *client)
     }
 
 	i2c_mux_del_adapters(muxc);
-
-    return 0;
 }
 
 static int as5812_54x_cpld_read_internal(struct i2c_client *client, u8 reg)
