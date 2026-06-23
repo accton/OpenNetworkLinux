@@ -54,6 +54,10 @@
 
 int psu_ym1401_pmbus_info_get(int id, char *node, int *value);
 int psu_ym1401_pmbus_info_set(int id, char *node, int value);
+int psu_status_info_get(int id, char *node, int *value);
+
+#define PSU_STATUS_PRESENT    1
+#define PSU_STATUS_POWER_GOOD 1
 
 enum onlp_thermal_id
 {

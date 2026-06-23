@@ -428,8 +428,7 @@ static const struct hwmon_chip_info as5835_54x_fan_chip_info = {
     .info = as5835_54x_fan_info,
 };
 
-static int as5835_54x_fan_probe(struct i2c_client *client,
-            const struct i2c_device_id *dev_id)
+static int as5835_54x_fan_probe(struct i2c_client *client)
 {
     struct as5835_54x_fan_data *data;
     int status;
