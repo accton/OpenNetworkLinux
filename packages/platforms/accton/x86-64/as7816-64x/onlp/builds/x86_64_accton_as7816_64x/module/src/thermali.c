@@ -202,6 +202,12 @@ onlp_thermali_info_get(onlp_oid_t id, onlp_thermal_info_t* info)
 		return onlp_file_read_int_max(&info->mcelsius, cpu_coretemp_files);
 	} else if(tid == THERMAL_1_ON_PSU1 || tid == THERMAL_1_ON_PSU2){
 		int pid = tid - THERMAL_1_ON_PSU1 + 1;
+		int power_good = 0;
+		if (onlp_file_read_int(&power_good, PSU_POWERGOOD_FORMAT, pid) == 0 &&
+		    power_good != PSU_STATUS_POWER_GOOD) {
+			info->status |= ONLP_THERMAL_STATUS_FAILED;
+			return ONLP_STATUS_OK;
+		}
 		return onlp_file_read_int(&info->mcelsius, "%s%s", psu_pmbus_path(pid), "psu_temp1_input");
 	}
 

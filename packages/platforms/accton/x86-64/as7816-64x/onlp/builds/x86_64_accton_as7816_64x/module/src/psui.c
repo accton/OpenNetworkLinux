@@ -27,9 +27,6 @@
 #include <onlplib/file.h>
 #include "platform_lib.h"
 
-#define PSU_STATUS_PRESENT     1
-#define PSU_STATUS_POWER_GOOD  1
-
 #define VALIDATE(_id)                           \
     do {                                        \
         if(!ONLP_OID_IS_PSU(_id)) {             \
@@ -48,10 +45,6 @@ psu_ym2651y_info_get(onlp_psu_info_t* info)
 {
     int val   = 0;
     int index = ONLP_OID_ID_GET(info->hdr.id);
-
-	if (info->status & ONLP_PSU_STATUS_FAILED) {
-	    return ONLP_STATUS_OK;
-	}
 
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
@@ -122,10 +115,7 @@ psu_dps850_info_get(onlp_psu_info_t* info)
     
     /* Set capability
      */
-    info->caps = ONLP_PSU_CAPS_AC;   
-	if (info->status & ONLP_PSU_STATUS_FAILED) {
-	    return ONLP_STATUS_OK;
-	}
+    info->caps = ONLP_PSU_CAPS_AC;
 
     /* Set the associated oid_table */
     info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
@@ -186,9 +176,10 @@ int
 onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 {
     int val   = 0;
+    int power_good = 0;
     int ret   = ONLP_STATUS_OK;
     int index = ONLP_OID_ID_GET(id);
-    psu_type_t psu_type; 
+    psu_type_t psu_type;
 
     VALIDATE(id);
 
@@ -208,12 +199,12 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
 
 
     /* Get power good status */
-    if (onlp_file_read_int(&val, PSU_POWERGOOD_FORMAT, index) < 0) {
+    if (onlp_file_read_int(&power_good, PSU_POWERGOOD_FORMAT, index) < 0) {
         AIM_LOG_ERROR("Unable to read power status from PSU(%d)\r\n", index);
         return ONLP_STATUS_E_INTERNAL;
     }
 
-    if (val != PSU_STATUS_POWER_GOOD) {
+    if (power_good != PSU_STATUS_POWER_GOOD) {
         info->status |=  ONLP_PSU_STATUS_FAILED;
     }
 
@@ -237,6 +228,10 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
             ret = psu_ym2651y_info_get(info);
             break;
         case PSU_TYPE_UNKNOWN:  /* User insert a unknown PSU or unplugged.*/
+            /* Link the child fan/thermal coids so onlpdump still
+             * surfaces them under the PSU. */
+            info->hdr.coids[0] = ONLP_FAN_ID_CREATE(index + CHASSIS_FAN_COUNT);
+            info->hdr.coids[1] = ONLP_THERMAL_ID_CREATE(index + CHASSIS_THERMAL_COUNT);
             info->status |= ONLP_PSU_STATUS_UNPLUGGED;
             info->status &= ~ONLP_PSU_STATUS_FAILED;
             ret = ONLP_STATUS_OK;
@@ -244,6 +239,14 @@ onlp_psui_info_get(onlp_oid_t id, onlp_psu_info_t* info)
         default:
             ret = ONLP_STATUS_E_UNSUPPORTED;
             break;
+    }
+
+    /* No AC input on a present PSU: surface as UNPLUGGED with no readings,
+     * but keep the fan/thermal coids set above so children stay linked. */
+    if (power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_PSU_STATUS_UNPLUGGED;
+        info->status &= ~ONLP_PSU_STATUS_FAILED;
+        info->caps = 0;
     }
 
     return ret;

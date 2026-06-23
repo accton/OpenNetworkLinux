@@ -182,6 +182,7 @@ static int
 _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
 {
 	int val = 0;
+	int power_good = 0;
 	psu_type_t psu_type;
 
 	info->status |= ONLP_FAN_STATUS_PRESENT;
@@ -190,8 +191,14 @@ _onlp_fani_info_get_fan_on_psu(int pid, onlp_fan_info_t* info)
      */
     info->status |= _onlp_get_fan_direction_on_psu();
 
+    /* If the PSU lost AC input, the fan tach is unreadable; mark FAILED
+     * rather than letting the PMBus reads fail downstream. */
+    if (onlp_file_read_int(&power_good, PSU_POWERGOOD_FORMAT, pid) == 0 &&
+        power_good != PSU_STATUS_POWER_GOOD) {
+        info->status |= ONLP_FAN_STATUS_FAILED;
+        return ONLP_STATUS_OK;
+    }
 
-     
     psu_type = psu_type_get(pid, NULL, 0);
     if (psu_type == PSU_TYPE_UNKNOWN)
         return ONLP_FAN_STATUS_FAILED;
