@@ -290,11 +290,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 						AIM_LOG_ERROR("Setting tx_disable to port(%d) is not supported (flat-memory module)\r\n", port);
 						return ONLP_STATUS_E_UNSUPPORTED;
 					}
-					else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0){
-						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write bank to eeprom fail\r\n", 
-								port);
-						return ONLP_STATUS_E_INTERNAL;
-					}
 					else if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) <0 ){
 						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", 
 								port);
@@ -313,6 +308,16 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 						return ONLP_STATUS_E_INTERNAL;
 					}
 					if (eeprom_control & QSFP_DD_P01H_TX_DISABLE_SUPPORT){
+
+						if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
+							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write bank to eeprom fail\r\n", port);
+
+							if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
+							}
+
+							return ONLP_STATUS_E_INTERNAL;
+						}
 
 						if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
 							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n", port);
@@ -470,12 +475,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 					}
 
 					/* Switch to Advertising page to check TX_DISABLE support */
-					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
-						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write bank to eeprom fail\r\n",
-									port);
-						return ONLP_STATUS_E_INTERNAL;
-					}
-
 					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) < 0) {
 						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write page to eeprom fail\r\n",
 									port);
@@ -500,6 +499,16 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 									port);
 						}
 						return ONLP_STATUS_E_UNSUPPORTED;
+					}
+
+					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
+						AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write bank to eeprom fail\r\n",
+									port);
+						if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+							AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d) : write page to eeprom fail\r\n",
+									port);
+						}
+						return ONLP_STATUS_E_INTERNAL;
 					}
 
 					/* Switch to Lane Control page to read TX disable */

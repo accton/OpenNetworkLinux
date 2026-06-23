@@ -316,10 +316,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                         AIM_LOG_ERROR("Setting tx_disable to port(%d) is not supported (flat-memory module)\r\n", port);
                         return ONLP_STATUS_E_UNSUPPORTED;
                     }
-                    if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
-                        AIM_LOG_ERROR("Failed to set Bank 0, unable to write tx_disable status to port(%d)\r\n", port);
-                        return ONLP_STATUS_E_INTERNAL;
-                    }
                     if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING)) < 0) {
                         AIM_LOG_ERROR("Failed to switch to Advertising Page on port(%d)\r\n", port);
                         goto restore;
@@ -330,6 +326,10 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                         goto restore;
                     }
                     if (support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
+                        if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
+                            AIM_LOG_ERROR("Failed to set Bank 0, unable to write tx_disable status to port(%d)\r\n", port);
+                            goto restore;
+                        }
                         if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL)) < 0) {
                             AIM_LOG_ERROR("Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)\r\n", 
                                         QSFP_DD_PAGE_LANE_CTRL, port);
@@ -499,10 +499,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                         AIM_LOG_ERROR("Getting tx_disable from port(%d) is not supported (flat-memory module)\r\n", port);
                         return ONLP_STATUS_E_UNSUPPORTED;
                     }
-                    if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
-                        AIM_LOG_ERROR("Failed to set Bank 0, unable to read tx_disable status from port(%d)\r\n", port);
-                        return ONLP_STATUS_E_INTERNAL;
-                    }
                     if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING)) < 0) {
                         AIM_LOG_ERROR("Failed to switch to Advertising Page on port(%d)\r\n", port);
                         goto restore;
@@ -513,6 +509,10 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                         goto restore;
                     }
                     if (support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
+                        if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
+                            AIM_LOG_ERROR("Failed to set Bank 0, unable to read tx_disable status from port(%d)\r\n", port);
+                            goto restore;
+                        }
                         if ((rv = onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL)) < 0) {
                             AIM_LOG_ERROR("Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)\r\n", 
                                         QSFP_DD_PAGE_LANE_CTRL, port);
