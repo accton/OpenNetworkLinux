@@ -956,8 +956,28 @@ static void as7816_64x_cpld_remove_client(struct i2c_client *client)
 	mutex_unlock(&list_lock);
 }
 
-static int as7816_64x_cpld_probe(struct i2c_client *client,
-            const struct i2c_device_id *dev_id)
+static umode_t as7816_64x_cpld_is_visible(const void *drvdata,
+                  enum hwmon_sensor_types type,
+                  u32 attr, int channel)
+{
+    return 0;
+}
+
+static const struct hwmon_channel_info *as7816_64x_cpld_info[] = {
+    HWMON_CHANNEL_INFO(chip, HWMON_C_REGISTER_TZ),
+    NULL,
+};
+
+static const struct hwmon_ops as7816_64x_cpld_hwmon_ops = {
+    .is_visible = as7816_64x_cpld_is_visible,
+};
+
+static const struct hwmon_chip_info as7816_64x_cpld_chip_info = {
+    .ops = &as7816_64x_cpld_hwmon_ops,
+    .info = as7816_64x_cpld_info,
+};
+
+static int as7816_64x_cpld_probe(struct i2c_client *client)
 {
     int status;
 	struct as7816_64x_cpld_data *data = NULL;
@@ -985,7 +1005,7 @@ static int as7816_64x_cpld_probe(struct i2c_client *client,
 	}
 
     data->hwmon_dev = hwmon_device_register_with_info(&client->dev, "as7816_64x_cpld",
-                                                      NULL, NULL, NULL);
+                                                      NULL, &as7816_64x_cpld_chip_info, NULL);
 	if (IS_ERR(data->hwmon_dev)) {
 		status = PTR_ERR(data->hwmon_dev);
 		goto exit_remove;
@@ -1007,7 +1027,7 @@ exit:
     return status;
 }
 
-static int as7816_64x_cpld_remove(struct i2c_client *client)
+static void as7816_64x_cpld_remove(struct i2c_client *client)
 {
     struct as7816_64x_cpld_data *data = i2c_get_clientdata(client);
 
@@ -1015,8 +1035,6 @@ static int as7816_64x_cpld_remove(struct i2c_client *client)
     sysfs_remove_group(&client->dev.kobj, &as7816_64x_cpld_group);
     kfree(data);
 	as7816_64x_cpld_remove_client(client);
-
-    return 0;
 }
 
 int as7816_64x_cpld_read(unsigned short cpld_addr, u8 reg)

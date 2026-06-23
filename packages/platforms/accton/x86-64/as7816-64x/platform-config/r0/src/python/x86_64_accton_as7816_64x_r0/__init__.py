@@ -192,5 +192,7 @@ class OnlPlatform_x86_64_accton_as7816_64x_r0(OnlPlatformAccton,
         subprocess.call('echo port50 > /sys/bus/i2c/devices/86-0050/port_name', shell=True)
         subprocess.call('echo port51 > /sys/bus/i2c/devices/87-0050/port_name', shell=True)
         subprocess.call('echo port52 > /sys/bus/i2c/devices/88-0050/port_name', shell=True)
-        
+
+        subprocess.call('echo -2 | tee /sys/bus/i2c/drivers/pca954x/*-00*/idle_state > /dev/null', shell=True)
+
         return True
