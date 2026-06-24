@@ -44,6 +44,8 @@
 
 #define PSU_PRESENT_FORMAT		"/sys/bus/i2c/devices/19-0060/psu%d_present"
 #define PSU_POWERGOOD_FORMAT	"/sys/bus/i2c/devices/19-0060/psu%d_power_good"
+#define PSU_STATUS_PRESENT      1
+#define PSU_STATUS_POWER_GOOD   1
 
 #define FAN_BOARD_PATH	"/sys/bus/i2c/devices/17-0068/"
 #define FAN_NODE(node)	FAN_BOARD_PATH#node
