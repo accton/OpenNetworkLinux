@@ -29,6 +29,7 @@
 #include "x86_64_accton_as9736_64d_int.h"
 #include "x86_64_accton_as9736_64d_log.h"
 #include "platform_lib.h"
+#include <syslog.h>
 
 #define SFP_PORT_MIN 64
 #define SFP_PORT_MAX 65
@@ -157,7 +158,7 @@ int onlp_sfpi_is_present(int port)
 	VALIDATE_PORT(port);
 
 	if (onlp_file_read_int(&present, MODULE_PRESENT_FORMAT, (port+1)) < 0) {
-		AIM_LOG_ERROR("Unable to read present status from port(%d)\r\n"
+		syslog(LOG_ERR, "Unable to read present status from port(%d)"
 				, port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -191,7 +192,7 @@ int onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 
 	fp = fopen(MODULE_RXLOS_ALL_ATTR, "r");
 	if (fp == NULL) {
-		AIM_LOG_ERROR("Unable to open the module_rx_los_all device file.");
+		syslog(LOG_ERR, "Unable to open the module_rx_los_all device file.");
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
@@ -201,7 +202,7 @@ int onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 	fclose(fp);
 	if (count != 9) {
 		/* Likely a read timeout. */
-		AIM_LOG_ERROR("Unable to read all fields from the module_rx_los_all device file.");
+		syslog(LOG_ERR, "Unable to read all fields from the module_rx_los_all device file.");
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
@@ -234,7 +235,7 @@ int onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 		} else {
 			if (onlp_file_read_int(&rx_loss, MODULE_RXLOS_FORMAT, 
 			(i+1)) < 0) {
-				AIM_LOG_ERROR("Unable to read rxloss status from port(%d)\r\n"
+				syslog(LOG_ERR, "Unable to read rxloss status from port(%d)"
 					, i+1);
 				return ONLP_STATUS_E_INTERNAL;
 			}
@@ -261,20 +262,20 @@ int onlp_sfpi_eeprom_read(int port, uint8_t data[256])
 	if (port <= 31) {
 		if (onlp_file_read(data, 256, &size, UDB_PORT_EEPROM_FORMAT,
 					port) != ONLP_STATUS_OK) {
-			AIM_LOG_ERROR("Unable to read eeprom from port(%d)\r\n", port);
+			syslog(LOG_ERR, "Unable to read eeprom from port(%d)", port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	} else {
 		if (onlp_file_read(data, 256, &size, LDB_PORT_EEPROM_FORMAT,
 					port-32) != ONLP_STATUS_OK) {
-			AIM_LOG_ERROR("Unable to read eeprom from port(%d)\r\n", port);
+			syslog(LOG_ERR, "Unable to read eeprom from port(%d)", port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
 	
 
 	if (size != 256) {
-		AIM_LOG_ERROR("Unable to read eeprom from port(%d), size is different!\r\n", 
+		syslog(LOG_ERR, "Unable to read eeprom from port(%d), size is different!", 
 			      port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -291,14 +292,14 @@ int onlp_sfpi_dom_read(int port, uint8_t data[256])
 	sprintf(file, PORT_EEPROM_FORMAT, onlp_sfpi_map_bus_index(port));
 	fp = fopen(file, "r");
 	if (fp == NULL) {
-		AIM_LOG_ERROR("Unable to open the eeprom device file of port(%d)",
+		syslog(LOG_ERR, "Unable to open the eeprom device file of port(%d)",
 			      port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
 	if (fseek(fp, 256, SEEK_CUR) != 0) {
 		fclose(fp);
-		AIM_LOG_ERROR("Unable to set the file position indicator of port(%d)", 
+		syslog(LOG_ERR, "Unable to set the file position indicator of port(%d)", 
 			      port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -306,7 +307,7 @@ int onlp_sfpi_dom_read(int port, uint8_t data[256])
 	int ret = fread(data, 1, 256, fp);
 	fclose(fp);
 	if (ret != 256) {
-		AIM_LOG_ERROR("Unable to read the module_eeprom device file of port(%d)", 
+		syslog(LOG_ERR, "Unable to read the module_eeprom device file of port(%d)", 
 			      port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -434,7 +435,7 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 			if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) { //SFP
 				if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT,
 							(port + 1)) < 0) {
-					AIM_LOG_ERROR("Unable to write tx_disable status to port(%d)\r\n",
+					syslog(LOG_ERR, "Unable to write tx_disable status to port(%d)",
 							port);
 					rv = ONLP_STATUS_E_INTERNAL;
 				}
@@ -445,45 +446,44 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 			else { //QSFP
 				identifier = onlp_sfpi_eeprom_readb(port, QSFP_EEPROM_OFFSET_IDENTIFIER);
 				if (identifier < 0) {
-					AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): read identifier from eeprom fail\r\n",
+					syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): read identifier from eeprom fail",
 							port);
 					rv = ONLP_STATUS_E_INTERNAL;
 				}
 				else if (identifier == QSFP_DD_IDENTIFIER) { /* QSFP DD */
 					/* Flat-memory CMIS modules do not implement page 01h/10h */
 					if ((status_byte = onlp_sfpi_eeprom_readb(port, QSFP_DD_LOWER_OFFSET_STATUS)) < 0) {
-						AIM_LOG_ERROR("Failed to read Status byte, unable to write tx_disable status to port(%d)\r\n", port);
+						syslog(LOG_ERR, "Failed to read Status byte, unable to write tx_disable status to port(%d)", port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else if (status_byte & QSFP_DD_FLAT_MEM) {
-						AIM_LOG_ERROR("Setting tx_disable to port(%d) is not supported (flat-memory module)\r\n", port);
 						rv = ONLP_STATUS_E_UNSUPPORTED;
 					}
 					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) < 0) {
-						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n",
+						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
 								port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else {
 						eeprom_control = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1);
 						if (eeprom_control < 0) {
-							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): read control from eeprom fail\r\n",
+							syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): read control from eeprom fail",
 									port);
 							rv = ONLP_STATUS_E_INTERNAL;
 						}
 						else if (eeprom_control & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
 							if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
-								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write bank to eeprom fail\r\n",
+								syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write bank to eeprom fail",
 										port);
 								rv = ONLP_STATUS_E_INTERNAL;
 							}
 							else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
-								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n",
+								syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
 										port);
 								rv = ONLP_STATUS_E_INTERNAL;
 							}
 							else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX, value) < 0) {
-								AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write TX disable to eeprom fail\r\n",
+								syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write TX disable to eeprom fail",
 										port);
 								rv = ONLP_STATUS_E_INTERNAL;
 							}
@@ -491,11 +491,10 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 								rv = ONLP_STATUS_OK;
 							}
 						} else {
-							AIM_LOG_ERROR("Setting tx disable to port(%d) is not supported\r\n", port);
 							rv = ONLP_STATUS_E_UNSUPPORTED;
 						}
 						if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
-							AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write page to eeprom fail\r\n",
+							syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
 									port);
 							rv = ONLP_STATUS_E_INTERNAL;
 						}
@@ -505,7 +504,7 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 					value = value & 0xf;
 
 					if (onlp_sfpi_eeprom_writeb(port, QSFP_EEPROM_OFFSET_TXDIS, value) < 0) {
-						AIM_LOG_ERROR("Unable to write tx_disable status to port(%d): write TX disable to eeprom fail\r\n",
+						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write TX disable to eeprom fail",
 								port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
@@ -525,7 +524,7 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
 		if (onlp_file_write_int(value, MODULE_RESET_FORMAT,
 					(port + 1)) < 0) {
-			AIM_LOG_ERROR("Unable to write reset status to port(%d)\r\n",
+			syslog(LOG_ERR, "Unable to write reset status to port(%d)",
 					port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		}
@@ -539,7 +538,7 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
 		if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT,
 					(port + 1)) < 0) {
-			AIM_LOG_ERROR("Unable to write LP mode status to port(%d)\r\n",
+			syslog(LOG_ERR, "Unable to write LP mode status to port(%d)",
 					port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		}
@@ -572,7 +571,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 		VALIDATE_SFP(port);
 		if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT,
 						(port+1)) < 0) {
-			AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n",
+			syslog(LOG_ERR, "Unable to read rx_loss status from port(%d)",
 						port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		}
@@ -585,7 +584,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 		VALIDATE_SFP(port);
 		if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT,
 						(port+1)) < 0) {
-			AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n",
+			syslog(LOG_ERR, "Unable to read tx_fault status from port(%d)",
 						port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		}
@@ -601,7 +600,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 			if (port >= SFP_PORT_MIN && port <= SFP_PORT_MAX) {
 				if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT,
 							(port+1)) < 0) {
-					AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n",
+					syslog(LOG_ERR, "Unable to read tx_disabled status from port(%d)",
 							port);
 					rv = ONLP_STATUS_E_INTERNAL;
 				}
@@ -612,46 +611,44 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 			else {
 				identifier = onlp_sfpi_eeprom_readb(port, QSFP_EEPROM_OFFSET_IDENTIFIER);
 				if (identifier < 0) {
-					AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d): read identifier from eeprom fail\r\n",
+					syslog(LOG_ERR, "Unable to read tx_disabled status from port(%d): read identifier from eeprom fail",
 							port);
 					rv = ONLP_STATUS_E_INTERNAL;
 				}
 				else if (identifier == QSFP_DD_IDENTIFIER) { /* QSFP DD */
 					/* Flat-memory CMIS modules do not implement page 01h/10h */
 					if ((status_byte = onlp_sfpi_eeprom_readb(port, QSFP_DD_LOWER_OFFSET_STATUS)) < 0) {
-						AIM_LOG_ERROR("Failed to read Status byte, unable to read tx_disable status from port(%d)\r\n", port);
+						syslog(LOG_ERR, "Failed to read Status byte, unable to read tx_disable status from port(%d)", port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else if (status_byte & QSFP_DD_FLAT_MEM) {
-						AIM_LOG_ERROR("Getting tx_disable from port(%d) is not supported (flat-memory module)\r\n", port);
 						rv = ONLP_STATUS_E_UNSUPPORTED;
 					}
 					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) < 0) {
-						AIM_LOG_ERROR("Failed to switch to Advertising Page on port(%d)\r\n", port);
+						syslog(LOG_ERR, "Failed to switch to Advertising Page on port(%d)", port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else if ((support_ctrls = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1)) < 0) {
-						AIM_LOG_ERROR("Failed to read Support Control on port(%d)\r\n", port);
+						syslog(LOG_ERR, "Failed to read Support Control on port(%d)", port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else if (!(support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT)) {
-						AIM_LOG_ERROR("Getting tx_disable from port(%d) is not supported\r\n", port);
 						rv = ONLP_STATUS_E_UNSUPPORTED;
 					}
 					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
-						AIM_LOG_ERROR("Unable to read tx_disable status from port(%d): write bank to eeprom fail\r\n",
+						syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): write bank to eeprom fail",
 								port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
-						AIM_LOG_ERROR("Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)\r\n",
+						syslog(LOG_ERR, "Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)",
 								QSFP_DD_PAGE_LANE_CTRL, port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else {
 						tx_dis = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX);
 						if (tx_dis < 0) {
-							AIM_LOG_ERROR("Unable to read tx_disable status from port(%d): read TX disable from eeprom fail\r\n",
+							syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): read TX disable from eeprom fail",
 									port);
 							rv = ONLP_STATUS_E_INTERNAL;
 						}
@@ -661,7 +658,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 						}
 					}
 					if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
-						AIM_LOG_ERROR("Unable to read tx_disable status from port(%d): write page to eeprom fail\r\n",
+						syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): write page to eeprom fail",
 								port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
@@ -669,7 +666,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 				else { /* QSFP 28 or QSFP+ */
 					tx_dis = onlp_sfpi_eeprom_readb(port, QSFP_EEPROM_OFFSET_TXDIS);
 					if (tx_dis < 0) {
-						AIM_LOG_ERROR("Unable to read tx_disable status from port(%d): read TX disable from eeprom fail\r\n",
+						syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): read TX disable from eeprom fail",
 								port);
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
@@ -690,7 +687,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
 		if (onlp_file_read_int(value, MODULE_RESET_FORMAT,
 					(port + 1)) < 0) {
-			AIM_LOG_ERROR("Unable to read reset status from port(%d)\r\n",
+			syslog(LOG_ERR, "Unable to read reset status from port(%d)",
 					port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		}
@@ -704,7 +701,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
 		if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT,
 					(port + 1)) < 0) {
-			AIM_LOG_ERROR("Unable to read LP mode status from port(%d)\r\n",
+			syslog(LOG_ERR, "Unable to read LP mode status from port(%d)",
 					port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		}
