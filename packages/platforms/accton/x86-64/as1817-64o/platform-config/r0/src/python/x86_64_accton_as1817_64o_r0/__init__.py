@@ -88,14 +88,17 @@ class OnlPlatform_x86_64_accton_as1817_64o_r0(OnlPlatformAccton,
         # Wait for FPGA driver to create i2c adapters
         sleep(2)
 
-        # Release reset for all OSFP ports
-        for port in range(1, 65):
-            subprocess.call('echo 0 > /sys/devices/platform/as1817_64o_fpga/module_reset_%d' % port,
-                            shell=True)
+        # Enable clock source
+        subprocess.call('ipmitool raw 0x34 0x23 0x65 0x12 0x3f', shell=True)
 
         # Enable EFUSE for all OSFP ports
         for reg in range(0x70, 0x78):
             subprocess.call('ipmitool raw 0x34 0x23 0x61 0x%02x 0xff' % reg,
+                            shell=True)
+
+        # Release reset for all OSFP ports
+        for port in range(1, 65):
+            subprocess.call('echo 0 > /sys/devices/platform/as1817_64o_fpga/module_reset_%d' % port,
                             shell=True)
 
         # i2c bus layout: bus0=I801, bus1=iSMT, bus2~67=ocores (port1~66)
