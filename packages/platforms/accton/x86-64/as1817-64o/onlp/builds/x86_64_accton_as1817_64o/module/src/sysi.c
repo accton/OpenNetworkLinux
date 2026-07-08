@@ -34,6 +34,7 @@
 #define CPLD2_VER_PATH "/sys/devices/platform/as1817_64o_sys/cpld2_version"
 #define FPGA_VER_PATH  "/sys/devices/platform/as1817_64o_sys/fpga_version"
 #define FAN_CPLD_VER_PATH "/sys/devices/platform/as1817_64o_sys/fan_cpld_version"
+#define SYS_CPLD_VER_PATH "/sys/devices/platform/as1817_64o_sys/sys_cpld_version"
 #define BIOS_VER_PATH  "/sys/devices/virtual/dmi/id/bios_version"
 
 const char *onlp_sysi_platform_get(void)
@@ -84,18 +85,22 @@ int onlp_sysi_platform_info_get(onlp_platform_info_t *pi)
     char *cpld2_ver = NULL;
     char *fpga_ver = NULL;
     char *fan_cpld_ver = NULL;
+    char *sys_cpld_ver = NULL;
     char *bios_ver = NULL;
 
     onlp_file_read_str(&cpld1_ver, CPLD1_VER_PATH);
     onlp_file_read_str(&cpld2_ver, CPLD2_VER_PATH);
     onlp_file_read_str(&fpga_ver, FPGA_VER_PATH);
     onlp_file_read_str(&fan_cpld_ver, FAN_CPLD_VER_PATH);
+    onlp_file_read_str(&sys_cpld_ver, SYS_CPLD_VER_PATH);
     onlp_file_read_str(&bios_ver, BIOS_VER_PATH);
 
     pi->cpld_versions = aim_fstrdup(
-        "\r\n\t   Port CPLD0: %s"
+        "\r\n\t   Sys CPLD: %s"
         "\r\n\t   Port CPLD1: %s"
+        "\r\n\t   Port CPLD2: %s"
         "\r\n\t   Fan CPLD: %s",
+        sys_cpld_ver ? sys_cpld_ver : "N/A",
         cpld1_ver ? cpld1_ver : "N/A",
         cpld2_ver ? cpld2_ver : "N/A",
         fan_cpld_ver ? fan_cpld_ver : "N/A");
@@ -110,6 +115,7 @@ int onlp_sysi_platform_info_get(onlp_platform_info_t *pi)
     AIM_FREE_IF_PTR(cpld2_ver);
     AIM_FREE_IF_PTR(fpga_ver);
     AIM_FREE_IF_PTR(fan_cpld_ver);
+    AIM_FREE_IF_PTR(sys_cpld_ver);
     AIM_FREE_IF_PTR(bios_ver);
 
     return ONLP_STATUS_OK;
