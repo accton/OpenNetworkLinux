@@ -455,49 +455,54 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 					if ((status_byte = onlp_sfpi_eeprom_readb(port, QSFP_DD_LOWER_OFFSET_STATUS)) < 0) {
 						syslog(LOG_ERR, "Failed to read Status byte, unable to write tx_disable status to port(%d)", port);
 						rv = ONLP_STATUS_E_INTERNAL;
+						break;
 					}
-					else if (status_byte & QSFP_DD_FLAT_MEM) {
+					if (status_byte & QSFP_DD_FLAT_MEM) {
 						rv = ONLP_STATUS_E_UNSUPPORTED;
+						break;
 					}
-					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) < 0) {
+					if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING)) < 0) {
 						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
 								port);
-						rv = ONLP_STATUS_E_INTERNAL;
+						goto restore;
 					}
-					else {
-						eeprom_control = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1);
-						if (eeprom_control < 0) {
-							syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): read control from eeprom fail",
+					if ((eeprom_control = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1)) < 0) {
+						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): read control from eeprom fail",
+								port);
+						rv = eeprom_control;
+						goto restore;
+					}
+					if (eeprom_control & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
+						if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
+							syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write bank to eeprom fail",
 									port);
-							rv = ONLP_STATUS_E_INTERNAL;
+							goto restore;
 						}
-						else if (eeprom_control & QSFP_DD_P01H_TX_DISABLE_SUPPORT) {
-							if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
-								syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write bank to eeprom fail",
-										port);
-								rv = ONLP_STATUS_E_INTERNAL;
-							}
-							else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
-								syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
-										port);
-								rv = ONLP_STATUS_E_INTERNAL;
-							}
-							else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX, value) < 0) {
-								syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write TX disable to eeprom fail",
-										port);
-								rv = ONLP_STATUS_E_INTERNAL;
-							}
-							else {
-								rv = ONLP_STATUS_OK;
-							}
-						} else {
-							rv = ONLP_STATUS_E_UNSUPPORTED;
-						}
-						if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+						if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL)) < 0) {
 							syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
 									port);
-							rv = ONLP_STATUS_E_INTERNAL;
+							goto restore;
 						}
+						if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX, (value & 0xff))) < 0) {
+							syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write TX disable to eeprom fail",
+									port);
+							goto restore;
+						}
+					} else {
+						rv = ONLP_STATUS_E_UNSUPPORTED;
+						goto restore;
+					}
+
+restore:
+					if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
+						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail",
+								port);
+					}
+
+					if (rv < 0) {
+						rv = (rv == ONLP_STATUS_E_UNSUPPORTED) ? rv : ONLP_STATUS_E_INTERNAL;
+					} else {
+						rv = ONLP_STATUS_OK;
 					}
 				} else { /* QSFP 28 or QSFP+ */
 					/* txdis valid bit(bit0-bit3), xxxx 1111 */
@@ -620,47 +625,53 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 					if ((status_byte = onlp_sfpi_eeprom_readb(port, QSFP_DD_LOWER_OFFSET_STATUS)) < 0) {
 						syslog(LOG_ERR, "Failed to read Status byte, unable to read tx_disable status from port(%d)", port);
 						rv = ONLP_STATUS_E_INTERNAL;
+						break;
 					}
-					else if (status_byte & QSFP_DD_FLAT_MEM) {
+					if (status_byte & QSFP_DD_FLAT_MEM) {
 						rv = ONLP_STATUS_E_UNSUPPORTED;
+						break;
 					}
-					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING) < 0) {
+					if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADVERTISING)) < 0) {
 						syslog(LOG_ERR, "Failed to switch to Advertising Page on port(%d)", port);
-						rv = ONLP_STATUS_E_INTERNAL;
+						goto restore;
 					}
-					else if ((support_ctrls = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1)) < 0) {
+					if ((support_ctrls = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P01H_OFFSET_CONTROL_1)) < 0) {
 						syslog(LOG_ERR, "Failed to read Support Control on port(%d)", port);
-						rv = ONLP_STATUS_E_INTERNAL;
+						rv = support_ctrls;
+						goto restore;
 					}
-					else if (!(support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT)) {
+					if (!(support_ctrls & QSFP_DD_P01H_TX_DISABLE_SUPPORT)) {
 						rv = ONLP_STATUS_E_UNSUPPORTED;
+						goto restore;
 					}
-					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0) < 0) {
+					if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_BANK_SELECT, 0)) < 0) {
 						syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): write bank to eeprom fail",
 								port);
-						rv = ONLP_STATUS_E_INTERNAL;
+						goto restore;
 					}
-					else if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL) < 0) {
+					if ((rv = onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_LANE_CTRL)) < 0) {
 						syslog(LOG_ERR, "Failed to switch to Lane Control Page (Page 0x%02x) on port(%d)",
 								QSFP_DD_PAGE_LANE_CTRL, port);
-						rv = ONLP_STATUS_E_INTERNAL;
+						goto restore;
 					}
-					else {
-						tx_dis = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX);
-						if (tx_dis < 0) {
-							syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): read TX disable from eeprom fail",
-									port);
-							rv = ONLP_STATUS_E_INTERNAL;
-						}
-						else {
-							*value = (tx_dis & 0xff);
-							rv = ONLP_STATUS_OK;
-						}
+					if ((tx_dis = onlp_sfpi_eeprom_readb(port, QSFP_DD_EEPROM_P10H_OFFSET_OUTPUT_DISABLE_TX)) < 0) {
+						syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): read TX disable from eeprom fail",
+								port);
+						rv = tx_dis;
+						goto restore;
 					}
+
+restore:
 					if (onlp_sfpi_eeprom_writeb(port, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
 						syslog(LOG_ERR, "Unable to read tx_disable status from port(%d): write page to eeprom fail",
 								port);
-						rv = ONLP_STATUS_E_INTERNAL;
+					}
+
+					if (rv < 0) {
+						rv = (rv == ONLP_STATUS_E_UNSUPPORTED) ? rv : ONLP_STATUS_E_INTERNAL;
+					} else {
+						*value = (tx_dis & 0xff);
+						rv = ONLP_STATUS_OK;
 					}
 				}
 				else { /* QSFP 28 or QSFP+ */
@@ -671,7 +682,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 						rv = ONLP_STATUS_E_INTERNAL;
 					}
 					else {
-						*value = tx_dis;
+						*value = (tx_dis & 0xf);
 						rv = ONLP_STATUS_OK;
 					}
 				}
