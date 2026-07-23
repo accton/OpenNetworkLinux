@@ -418,7 +418,6 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 					}
 
 					if (rv < 0) {
-						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d)", port);
 						rv = (rv == ONLP_STATUS_E_UNSUPPORTED) ? rv : ONLP_STATUS_E_INTERNAL;
 					} else {
 						rv = ONLP_STATUS_OK;
@@ -470,7 +469,7 @@ int onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
 		if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT,
 					bus, addr, (port + 1)) < 0) {
-			syslog(LOG_ERR, "Unable to set lp mode to port(%d)", 
+			syslog(LOG_ERR, "Unable to set LP mode to port(%d)", 
 				      port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		} else {
@@ -586,7 +585,6 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 					}
 
 					if (rv < 0) {
-						syslog(LOG_ERR, "Unable to get tx_disable status from port(%d)", port);
 						rv = (rv == ONLP_STATUS_E_UNSUPPORTED) ? rv : ONLP_STATUS_E_INTERNAL;
 					} else {
 						*value = (tx_dis & 0xff);
@@ -639,7 +637,7 @@ int onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
 		if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT,
 					bus, addr, (port + 1)) < 0) {
-			syslog(LOG_ERR, "Unable to get lp mode to port(%d)", 
+			syslog(LOG_ERR, "Unable to get LP mode to port(%d)", 
 				      port);
 			rv = ONLP_STATUS_E_INTERNAL;
 		} else {

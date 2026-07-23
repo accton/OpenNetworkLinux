@@ -400,7 +400,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
             break;
         }
         if (onlp_file_write_int(value, path, (port+1)) < 0) {
-            syslog(LOG_ERR, "Unable to write lpmode status to port(%d)", port);
+            syslog(LOG_ERR, "Unable to write LP mode status to port(%d)", port);
             rv = ONLP_STATUS_E_INTERNAL;
         }
         break;
@@ -569,7 +569,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
             break;
         }
         if (onlp_file_read_int(value, path, (port+1)) < 0) {
-            syslog(LOG_ERR, "Unable to read lpmode status from port(%d)", port);
+            syslog(LOG_ERR, "Unable to read LP mode status from port(%d)", port);
             rv = ONLP_STATUS_E_INTERNAL;
         }
         break;

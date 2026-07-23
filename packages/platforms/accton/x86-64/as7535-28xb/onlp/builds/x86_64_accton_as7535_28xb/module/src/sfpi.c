@@ -383,7 +383,6 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                         syslog(LOG_ERR, "Failed to restore Page Select to Admin Info on port(%d)!", port);
                     }
                     if (rv < 0) {
-                        syslog(LOG_ERR, "Unable to write tx_disable status to port(%d)", port);
                         return (rv == ONLP_STATUS_E_UNSUPPORTED) ? rv : ONLP_STATUS_E_INTERNAL;
                     }
 
@@ -421,7 +420,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
         VALIDATE_QSFP(port);
 
         if (onlp_file_write_int(value, MODULE_LPMODE_FORMAT, (port+1)) < 0) {
-            syslog(LOG_ERR, "Unable to write lp mode status to port(%d)", port);
+            syslog(LOG_ERR, "Unable to write LP mode status to port(%d)", port);
             return ONLP_STATUS_E_INTERNAL;
         }
         else {
@@ -562,7 +561,6 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                     }
 
                     if (rv < 0) {
-                        syslog(LOG_ERR, "Unable to get tx_disable status from port(%d)", port);
                         return (rv == ONLP_STATUS_E_UNSUPPORTED) ? rv : ONLP_STATUS_E_INTERNAL;
                     }
                     *value = (tx_dis & 0xff);
@@ -600,7 +598,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
         VALIDATE_QSFP(port);
 
         if (onlp_file_read_int(value, MODULE_LPMODE_FORMAT, (port+1)) < 0) {
-            syslog(LOG_ERR, "Unable to read lp mode status from port(%d)", port);
+            syslog(LOG_ERR, "Unable to read LP mode status from port(%d)", port);
             return ONLP_STATUS_E_INTERNAL;
         }
 
