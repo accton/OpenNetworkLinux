@@ -25,7 +25,6 @@
 #include <linux/module.h>
 #include <linux/jiffies.h>
 #include <linux/i2c.h>
-#include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/err.h>
 #include <linux/mutex.h>
@@ -53,20 +52,19 @@ enum cpld_type {
 #define I2C_RW_RETRY_INTERVAL 60 /* ms */
 
 static ssize_t show_status(struct device *dev, struct device_attribute *da,
-			 char *buf);
-static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
-			 char *buf);
+				char *buf);
+static ssize_t show_present_all(struct device *dev, struct device_attribute
+				*da, char *buf);
 static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
-			const char *buf, size_t count);
+				const char *buf, size_t count);
 static ssize_t set_control(struct device *dev, struct device_attribute *da,
-			const char *buf, size_t count);
-static ssize_t access(struct device *dev, struct device_attribute *da,
-			const char *buf, size_t count);
+				const char *buf, size_t count);
+static ssize_t access(struct device *dev, struct device_attribute *da, const
+				char *buf, size_t count);
 static ssize_t show_version(struct device *dev, struct device_attribute *da,
-			char *buf);
+				char *buf);
 
 struct as7946_30xb_cpld_data {
-	struct device *hwmon_dev;
 	struct mutex   update_lock;
 	u8  index; /* CPLD index */
 };
@@ -183,36 +181,26 @@ enum as7946_30xb_cpld_sysfs_attributes {
 
 /* qsfp transceiver attributes */
 #define DECLARE_QSFP28_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
-	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, \
-								NULL, MODULE_PRESENT_##index); \
-	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, \
-								show_status, set_control, MODULE_RESET_##index); \
-	static SENSOR_DEVICE_ATTR(module_lpmode_##index, S_IRUGO | S_IWUSR, \
-								show_status, set_control, MODULE_LPMODE_##index);
+	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, NULL, MODULE_PRESENT_##index); \
+	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, show_status, set_control, MODULE_RESET_##index); \
+	static SENSOR_DEVICE_ATTR(module_lpmode_##index, S_IRUGO | S_IWUSR, show_status, set_control, MODULE_LPMODE_##index);
 #define DECLARE_QSFP28_TRANSCEIVER_ATTR(index)  \
 	&sensor_dev_attr_module_present_##index.dev_attr.attr, \
 	&sensor_dev_attr_module_reset_##index.dev_attr.attr, \
 	&sensor_dev_attr_module_lpmode_##index.dev_attr.attr
 #define DECLARE_QSFPDD_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
-	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, \
-								show_status, NULL, MODULE_PRESENT_##index); \
-	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, \
-								show_status, set_control, MODULE_RESET_##index); \
-	static SENSOR_DEVICE_ATTR(module_lpmode_##index, S_IRUGO | S_IWUSR, \
-								show_status, set_control, MODULE_LPMODE_##index)
+	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, NULL, MODULE_PRESENT_##index); \
+	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, show_status, set_control, MODULE_RESET_##index); \
+	static SENSOR_DEVICE_ATTR(module_lpmode_##index, S_IRUGO | S_IWUSR, show_status, set_control, MODULE_LPMODE_##index)
 #define DECLARE_QSFPDD_TRANSCEIVER_ATTR(index) \
 	&sensor_dev_attr_module_present_##index.dev_attr.attr, \
 	&sensor_dev_attr_module_reset_##index.dev_attr.attr, \
 	&sensor_dev_attr_module_lpmode_##index.dev_attr.attr
 /* sfp transceiver attributes */
 #define DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
-	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, \
-								NULL, MODULE_PRESENT_##index); \
-	static SENSOR_DEVICE_ATTR(module_tx_disable_##index, S_IRUGO | S_IWUSR, \
-								show_status, set_tx_disable, \
-								MODULE_TXDISABLE_##index); \
-	static SENSOR_DEVICE_ATTR(module_rx_los_##index, S_IRUGO, show_status, \
-								NULL, MODULE_RXLOS_##index)
+	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, NULL, MODULE_PRESENT_##index); \
+	static SENSOR_DEVICE_ATTR(module_tx_disable_##index, S_IRUGO | S_IWUSR, show_status, set_tx_disable, MODULE_TXDISABLE_##index); \
+	static SENSOR_DEVICE_ATTR(module_rx_los_##index, S_IRUGO, show_status, NULL, MODULE_RXLOS_##index)
 
 #define DECLARE_SFP_TRANSCEIVER_ATTR(index) \
 	&sensor_dev_attr_module_present_##index.dev_attr.attr, \
@@ -221,8 +209,7 @@ enum as7946_30xb_cpld_sysfs_attributes {
 
 static SENSOR_DEVICE_ATTR(version, S_IRUGO, show_version, NULL, CPLD_VERSION);
 static SENSOR_DEVICE_ATTR(access, S_IWUSR, NULL, access, ACCESS);
-static SENSOR_DEVICE_ATTR(module_present_all, S_IRUGO, show_present_all, \
-							NULL, MODULE_PRESENT_ALL);
+static SENSOR_DEVICE_ATTR(module_present_all, S_IRUGO, show_present_all, NULL, MODULE_PRESENT_ALL);
 
 /* transceiver attributes */
 DECLARE_QSFPDD_TRANSCEIVER_SENSOR_DEVICE_ATTR(1);
@@ -314,7 +301,7 @@ static const struct attribute_group* cpld_groups[] = {
 	&as7946_30xb_cpld2_group,
 };
 
-int as7946_30xb_cpld_read(int bus_num, unsigned short cpld_addr, u8 reg)
+int as7946_30xb_cpld_read(unsigned short cpld_addr, u8 reg)
 {
 	struct list_head   *list_node = NULL;
 	struct cpld_client_node *cpld_node = NULL;
@@ -326,8 +313,7 @@ int as7946_30xb_cpld_read(int bus_num, unsigned short cpld_addr, u8 reg)
 	{
 		cpld_node = list_entry(list_node, struct cpld_client_node, list);
 
-		if (cpld_node->client->addr == cpld_addr
-			&& cpld_node->client->adapter->nr == bus_num) {
+		if (cpld_node->client->addr == cpld_addr) {
 			ret = i2c_smbus_read_byte_data(cpld_node->client, reg);
 			break;
 		}
@@ -339,7 +325,7 @@ int as7946_30xb_cpld_read(int bus_num, unsigned short cpld_addr, u8 reg)
 }
 EXPORT_SYMBOL(as7946_30xb_cpld_read);
 
-int as7946_30xb_cpld_write(int bus_num, unsigned short cpld_addr, u8 reg, u8 value)
+int as7946_30xb_cpld_write(unsigned short cpld_addr, u8 reg, u8 value)
 {
 	struct list_head *list_node = NULL;
 	struct cpld_client_node *cpld_node = NULL;
@@ -351,8 +337,7 @@ int as7946_30xb_cpld_write(int bus_num, unsigned short cpld_addr, u8 reg, u8 val
 	{
 		cpld_node = list_entry(list_node, struct cpld_client_node, list);
 
-		if (cpld_node->client->addr == cpld_addr
-			&& cpld_node->client->adapter->nr == bus_num) {
+		if (cpld_node->client->addr == cpld_addr) {
 			ret = i2c_smbus_write_byte_data(cpld_node->client, reg, value);
 			break;
 		}
@@ -445,18 +430,8 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 	}
 
 	mutex_lock(&data->update_lock);
-	switch(data->index) {
-	/* Port 1-16 present status: read from i2c bus number '12'
-		and CPLD slave address 0x61 */
-	case as7946_30xb_cpld1: status = as7946_30xb_cpld_read(12, 0x61, reg);
-		break;
-	/* Port 17-30 present status: read from i2c bus number '13'
-		and CPLD slave address 0x62 */
-	case as7946_30xb_cpld2: status = as7946_30xb_cpld_read(13, 0x62, reg);
-		break;
-	default: status = -ENXIO;
-		break;
-	}
+
+	status = as7946_30xb_cpld_read(client->addr, reg);
 
 	if (unlikely(status < 0))
 		goto exit;
@@ -478,18 +453,14 @@ static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
 	u8 regs_cpld1[] = { 0x10, 0x11 };
 	u8 regs_cpld2[] = { 0x10, 0x11, 0x12 };
 	u8 *regs[] = { regs_cpld1, regs_cpld2 };
-	u8  size[] = { ARRAY_SIZE(regs_cpld1),
-					ARRAY_SIZE(regs_cpld2) };
-	u8 bus[] = { 12, 13 };
-	u8 addr[] = { 0x61, 0x62 };
+	u8  size[] = { ARRAY_SIZE(regs_cpld1), ARRAY_SIZE(regs_cpld2) };
 	struct i2c_client *client = to_i2c_client(dev);
 	struct as7946_30xb_cpld_data *data = i2c_get_clientdata(client);
 
 	mutex_lock(&data->update_lock);
 
 	for (i = 0; i < size[data->index]; i++) {
-		status = as7946_30xb_cpld_read(bus[data->index],
-									addr[data->index], regs[data->index][i]);
+		status = as7946_30xb_cpld_read(client->addr, regs[data->index][i]);
 		if (status < 0)
 			goto exit;
 
@@ -500,11 +471,10 @@ static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
 
 	switch(data->index) {
 	case as7946_30xb_cpld1:
-		return sprintf(buf, "%.2x %.2x\n",
-						values[0], values[1]);
+		return sprintf(buf, "%.2x %.2x\n", values[0], values[1]);
 	case as7946_30xb_cpld2:
-		return sprintf(buf, "%.2x %.2x %.2x\n",
-						values[0], values[1] & 0x3, values[2] & 0xf);
+		return sprintf(buf, "%.2x %.2x %.2x\n", \
+				values[0], values[1] & 0x3, values[2] & 0xf);
 	default:
 		return -EINVAL;
 	}
@@ -521,14 +491,13 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 	struct i2c_client *client = to_i2c_client(dev);
 	struct as7946_30xb_cpld_data *data = i2c_get_clientdata(client);
 	long disable;
-	int status, bus, addr, val;
+	int status, val;
 	u8 reg = 0, mask = 0;
 
 	status = kstrtol(buf, 10, &disable);
 	if (status)
 		return status;
 
-	
 	switch (attr->index) {
 	case MODULE_TXDISABLE_27 ... MODULE_TXDISABLE_30:
 		reg  = 0xA;
@@ -538,27 +507,13 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 		return 0;
 	}
 	mutex_lock(&data->update_lock);
-	switch(data->index) {
-	/* Port 1-16 present status: read from i2c bus number '12'
-		and CPLD slave address 0x61 */
-	case as7946_30xb_cpld1:
-		bus  = 12;
-		addr = 0x61;
-		break;
-	/* Port 17-30 present status: read from i2c bus number '13'
-		and CPLD slave address 0x62 */
-	case as7946_30xb_cpld2:
-		bus  = 13;
-		addr = 0x62;
-		break;
-	default: status = -ENXIO;
-		goto exit;
-	}
 
 	/* Read current status */
-	val = as7946_30xb_cpld_read(bus, addr, reg);
+	status = as7946_30xb_cpld_read(client->addr, reg);
 	if (unlikely(status < 0))
 		goto exit;
+
+	val = status;
 
 	/* Update tx_disable status */
 	if (disable)
@@ -566,7 +521,7 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 	else
 		val &= ~mask;
 
-	status = as7946_30xb_cpld_write(bus, addr, reg, val);
+	status = as7946_30xb_cpld_write(client->addr, reg, val);
 	if (unlikely(status < 0))
 		goto exit;
 
@@ -585,7 +540,7 @@ static ssize_t set_control(struct device *dev, struct device_attribute *da,
 	struct i2c_client *client = to_i2c_client(dev);
 	struct as7946_30xb_cpld_data *data = i2c_get_clientdata(client);
 	long value;
-	int status, bus, addr;
+	int status;
 	u8 reg = 0, mask = 0, invert = 1;
 
 	status = kstrtol(buf, 10, &value);
@@ -638,25 +593,9 @@ static ssize_t set_control(struct device *dev, struct device_attribute *da,
 	}
 
 	mutex_lock(&data->update_lock);
-	switch(data->index) {
-	/* Port 1-16 reset and lpmode status: read from i2c bus number '12'
-		and CPLD slave address 0x61 */
-	case as7946_30xb_cpld1:
-		bus  = 12;
-		addr = 0x61;
-		break;
-	/* Port 17-30 reset and lpmode status: read from i2c bus number '13'
-		and CPLD slave address 0x62 */
-	case as7946_30xb_cpld2:
-		bus  = 13;
-		addr = 0x62;
-		break;
-	default: status = -ENXIO;
-		goto exit;
-	}
 
 	/* Read current status */
-	status = as7946_30xb_cpld_read(bus, addr, reg);
+	status = as7946_30xb_cpld_read(client->addr, reg);
 	if (unlikely(status < 0))
 		goto exit;
 
@@ -673,7 +612,7 @@ static ssize_t set_control(struct device *dev, struct device_attribute *da,
 			status &= ~mask;
 
 
-	status = as7946_30xb_cpld_write(bus, addr, reg, status);
+	status = as7946_30xb_cpld_write(client->addr, reg, status);
 	if (unlikely(status < 0))
 		goto exit;
 
@@ -687,12 +626,10 @@ exit:
 
 static void as7946_30xb_cpld_add_client(struct i2c_client *client)
 {
-	struct cpld_client_node *node = kzalloc(sizeof(struct cpld_client_node),
-											GFP_KERNEL);
+	struct cpld_client_node *node = kzalloc(sizeof(struct cpld_client_node), GFP_KERNEL);
 
 	if (!node) {
-		dev_dbg(&client->dev, "Can't allocate cpld_client_node (0x%x)\n",
-								client->addr);
+		dev_dbg(&client->dev, "Can't allocate cpld_client_node (0x%x)\n", client->addr);
 		return;
 	}
 
@@ -744,14 +681,8 @@ static ssize_t access(struct device *dev, struct device_attribute *da,
 		return -EINVAL;
 
 	mutex_lock(&data->update_lock);
-	switch(data->index) {
-	case as7946_30xb_cpld1: status = as7946_30xb_cpld_write(12, 0x61, reg, val);
-		break;
-	case as7946_30xb_cpld2: status = as7946_30xb_cpld_write(13, 0x62, reg, val);
-		break;
-	default: status = -ENXIO;
-			break;
-	}
+
+	status = as7946_30xb_cpld_write(client->addr, reg, val);
 
 	if (unlikely(status < 0))
 		goto exit;
@@ -764,7 +695,7 @@ exit:
 	return status;
 }
 
-static ssize_t show_version(struct device *dev, struct device_attribute *attr,
+static ssize_t show_version(struct device *dev, struct device_attribute *da,
 							char *buf)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -772,14 +703,8 @@ static ssize_t show_version(struct device *dev, struct device_attribute *attr,
 	int status = 0;
 
 	mutex_lock(&data->update_lock);
-	switch(data->index) {
-	case as7946_30xb_cpld1: status = as7946_30xb_cpld_read(12, 0x61, 0x1);
-		break;
-	case as7946_30xb_cpld2: status = as7946_30xb_cpld_read(13, 0x62, 0x1);
-		break;
-	default: status = -1;
-			break;
-	}
+
+	status = as7946_30xb_cpld_read(client->addr, 0x1);
 
 	if (unlikely(status < 0)) {
 		mutex_unlock(&data->update_lock);
@@ -792,27 +717,6 @@ static ssize_t show_version(struct device *dev, struct device_attribute *attr,
 exit:
 	return status;
 }
-
-static umode_t as7946_30xb_cpld_is_visible(const void *drvdata,
-                  enum hwmon_sensor_types type,
-                  u32 attr, int channel)
-{
-	return 0;
-}
-
-static const struct hwmon_channel_info *as7946_30xb_cpld_info[] = {
-	HWMON_CHANNEL_INFO(chip, HWMON_C_REGISTER_TZ),
-	NULL,
-};
-
-static const struct hwmon_ops as7946_30xb_cpld_hwmon_ops = {
-	.is_visible = as7946_30xb_cpld_is_visible,
-};
-
-static const struct hwmon_chip_info as7946_30xb_cpld_chip_info = {
-	.ops = &as7946_30xb_cpld_hwmon_ops,
-	.info = as7946_30xb_cpld_info,
-};
 
 static int as7946_30xb_cpld_probe(struct i2c_client *client,
 			const struct i2c_device_id *dev_id)
@@ -843,24 +747,12 @@ static int as7946_30xb_cpld_probe(struct i2c_client *client,
 	if (status)
 		goto exit_free;
 
-	data->hwmon_dev = hwmon_device_register_with_info(&client->dev, 
-					DRVNAME, NULL, 
-					&as7946_30xb_cpld_chip_info, NULL);
-
-	if (IS_ERR(data->hwmon_dev)) {
-		status = PTR_ERR(data->hwmon_dev);
-		goto exit_remove;
-	}
-
 	as7946_30xb_cpld_add_client(client);
 
-	dev_info(&client->dev, "%s: cpld '%s'\n",
-							dev_name(data->hwmon_dev), client->name);
+	dev_info(&client->dev, "cpld '%s'\n", client->name);
 
 	return 0;
 
-exit_remove:
-	sysfs_remove_group(&client->dev.kobj, cpld_groups[data->index]);
 exit_free:
 	kfree(data);
 exit:
@@ -872,7 +764,6 @@ static void as7946_30xb_cpld_remove(struct i2c_client *client)
 {
 	struct as7946_30xb_cpld_data *data = i2c_get_clientdata(client);
 
-	hwmon_device_unregister(data->hwmon_dev);
 	sysfs_remove_group(&client->dev.kobj, cpld_groups[data->index]);
 	kfree(data);
 	as7946_30xb_cpld_remove_client(client);
