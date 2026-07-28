@@ -321,7 +321,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 
 				restore:
 					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
-						syslog(LOG_ERR, "Unable to write tx_disable status to port(%d): write page to eeprom fail", port);
+						syslog(LOG_ERR, "Failed to restore Page Select to Admin Info on port(%d)!", port);
 					}
 
 					if (rv < 0) {
@@ -486,8 +486,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 
 				restore:
 					if (onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_DD_EEPROM_OFFSET_PAGE_SELECT, QSFP_DD_PAGE_ADMIN_INFO) < 0) {
-						syslog(LOG_ERR, "Unable to read tx_disabled status from port(%d) : write page to eeprom fail",
-								port);
+						syslog(LOG_ERR, "Failed to restore Page Select to Admin Info on port(%d)!", port);
 					}
 
 					if (rv < 0) {
