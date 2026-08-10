@@ -28,6 +28,7 @@
 #include <onlplib/file.h>
 #include "x86_64_accton_as4625_54t_int.h"
 #include "x86_64_accton_as4625_54t_log.h"
+#include <syslog.h>
 
 #define PORT_EEPROM_FORMAT      "/sys/bus/i2c/devices/%d-0050/eeprom"
 #define MODULE_PRESENT_FORMAT_0   "/sys/bus/i2c/devices/0-0064/module_present_%d"
@@ -46,12 +47,79 @@
 int port_bus_index[] = { 10, 11, 12, 13, 14, 15 };
 #define PORT_BUS_INDEX(port) (port_bus_index[port-48])
 
+#define MAX_PORT 53
+
 #define VALIDATE_SFP(_port) \
 	do { \
 		if (_port < 48 || _port > 53) \
 			return ONLP_STATUS_E_UNSUPPORTED; \
 	} while(0)
 
+enum log_reason{
+    PRESENT_UNABLE_TO_GET_STATUS,
+    EEPROM_UNABLE_TO_GET_DATA,
+    EEPROM_UNABLE_TO_GET_DATA_SIZE_DIFF,
+    DOM_UNABLE_TO_OPEN_EEPROM_FILE,
+    DOM_UNABLE_TO_SET_FILE_POS_INDICATOR,
+    DOM_UNABLE_TO_GET_EEPROM_DATA,
+    TX_DIS_UNABLE_TO_SET_STATUS,
+    TX_DIS_UNABLE_TO_GET_IDENTIFIER,
+    TX_DIS_UNABLE_TO_GET_MEM_MODEL,
+    TX_DIS_UNABLE_TO_SET_EEPROM_PAGE,
+    TX_DIS_UNABLE_TO_GET_CONTROL,
+    TX_DIS_UNABLE_TO_SET_BANK,
+    TX_DIS_UNABLE_TO_GET_STATUS,
+    LP_MODE_UNABLE_TO_GET_IDENTIFIER,
+    LP_MODE_UNABLE_TO_SET_STATUS,
+    LP_MODE_UNABLE_TO_GET_STATUS,
+    RESET_UNABLE_TO_SET_STATUS,
+    RESET_UNABLE_TO_GET_STATUS,
+    RX_LOS_UNABLE_TO_GET_STATUS,
+    TX_FAULT_UNABLE_TO_GET_STATUS,
+    LOG_REASON_COUNT,
+};
+
+struct sfp_log_ctrl {
+    int should_log;
+};
+
+struct sfp_log_mgmt {
+    int sfp_present_rec;
+    struct sfp_log_ctrl log_ctrl[LOG_REASON_COUNT]; 
+};
+
+static struct sfp_log_mgmt log_mgmt[MAX_PORT+1] = {
+    [0 ... MAX_PORT] = {
+        .sfp_present_rec = ONLP_STATUS_E_INTERNAL,
+        .log_ctrl = {
+            [0 ... LOG_REASON_COUNT - 1] = { .should_log = 1 }
+        }
+    }
+};
+
+void syslog_ctrl(struct sfp_log_mgmt *log_mgmt_ptr, int log_reason, const char *fmt, ...) {
+    char buf[256];
+    va_list args;
+
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    if (log_mgmt_ptr->log_ctrl[log_reason].should_log) {
+        syslog(LOG_ERR, "%s", buf);
+
+        log_mgmt_ptr->log_ctrl[log_reason].should_log = 0;
+    }
+}
+
+void reset_log_ctrl(struct sfp_log_mgmt *log_mgmt_ptr) 
+{
+    int i;
+
+    for (i = 0; i < LOG_REASON_COUNT; i++) {
+        log_mgmt_ptr->log_ctrl[i].should_log = 1;
+    }
+}
 
 /************************************************************
  *
@@ -93,11 +161,21 @@ onlp_sfpi_is_present(int port)
 
 	if (onlp_file_read_int(&present, MODULE_PRESENT_FORMAT_0, port+1) < 0) {
 		if (onlp_file_read_int(&present, MODULE_PRESENT_FORMAT_1, port+1) < 0) {
-			AIM_LOG_ERROR("Unable to read present status from port(%d)\r\n", 
-				port);
+			if (log_mgmt[port].sfp_present_rec != ONLP_STATUS_E_INTERNAL) {
+				reset_log_ctrl(&log_mgmt[port]);
+			}
+			log_mgmt[port].sfp_present_rec = ONLP_STATUS_E_INTERNAL;
+
+			syslog_ctrl(&log_mgmt[port], PRESENT_UNABLE_TO_GET_STATUS,
+				"Unable to read present status from port(%d)", port);
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
+
+	if (present == 1 && present != log_mgmt[port].sfp_present_rec) {
+		reset_log_ctrl(&log_mgmt[port]);
+	}
+	log_mgmt[port].sfp_present_rec = present;
 
 	return present;
 }
@@ -115,7 +193,7 @@ onlp_sfpi_presence_bitmap_get(onlp_sfp_bitmap_t* dst)
 	if(fp == NULL) {
 		fp = fopen(MODULE_PRESENT_ALL_ATTR_1, "r");
 		if(fp == NULL) {
-			AIM_LOG_ERROR("Unable to open the module_present_all device file");
+			syslog(LOG_ERR, "Unable to open the module_present_all device file");
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
@@ -125,7 +203,7 @@ onlp_sfpi_presence_bitmap_get(onlp_sfp_bitmap_t* dst)
 
 	if(count != 1) {
 		/* Likely a CPLD read timeout. */
-		AIM_LOG_ERROR("Unable to read the module_present_all device file");
+		syslog(LOG_ERR, "Unable to read the module_present_all device file");
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
@@ -166,7 +244,7 @@ onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 	if(fp == NULL) {
 		fp = fopen(MODULE_RXLOS_ALL_ATTR_1, "r");
 		if(fp == NULL){
-			AIM_LOG_ERROR("Unable to open the module_rx_los_all device file");
+			syslog(LOG_ERR, "Unable to open the module_rx_los_all device file");
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
@@ -176,7 +254,7 @@ onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 
 	if(count != 1) {
 		/* Likely a CPLD read timeout. */
-		AIM_LOG_ERROR("Unable to read the module_rx_los_all device file");
+		syslog(LOG_ERR, "Unable to read the module_rx_los_all device file");
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
@@ -184,7 +262,7 @@ onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 	if(fp1 == NULL) {
 		fp1 = fopen(MODULE_PRESENT_ALL_ATTR_1, "r");
 		if(fp1 == NULL) {
-			AIM_LOG_ERROR("Unable to open the module_present_all device file");
+			syslog(LOG_ERR, "Unable to open the module_present_all device file");
 			return ONLP_STATUS_E_INTERNAL;
 		}
 	}
@@ -194,7 +272,7 @@ onlp_sfpi_rx_los_bitmap_get(onlp_sfp_bitmap_t* dst)
 
 	if(count1 != 1) {
 		/* Likely a CPLD read timeout. */
-		AIM_LOG_ERROR("Unable to read the module_present_all device file");
+		syslog(LOG_ERR, "Unable to read the module_present_all device file");
 		return ONLP_STATUS_E_INTERNAL;
 	}
 	/* Mask out non-existant SFP ports */
@@ -230,12 +308,14 @@ onlp_sfpi_eeprom_read(int port, uint8_t data[256])
 
 	if (onlp_file_read(data, 256, &size, PORT_EEPROM_FORMAT,
 			PORT_BUS_INDEX(port)) != ONLP_STATUS_OK) {
-		AIM_LOG_ERROR("Unable to read eeprom from port(%d)\r\n", port);
+		syslog_ctrl(&log_mgmt[port], EEPROM_UNABLE_TO_GET_DATA,
+			"Unable to read eeprom from port(%d)", port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
 	if (size != 256) {
-		AIM_LOG_ERROR("Unable to read eeprom from port(%d), size is different!\r\n"
+		syslog_ctrl(&log_mgmt[port], EEPROM_UNABLE_TO_GET_DATA_SIZE_DIFF,
+			"Unable to read eeprom from port(%d), size is different!"
 			, port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -254,14 +334,16 @@ onlp_sfpi_dom_read(int port, uint8_t data[256])
 	sprintf(file, PORT_EEPROM_FORMAT, PORT_BUS_INDEX(port));
 	fp = fopen(file, "r");
 	if(fp == NULL) {
-		AIM_LOG_ERROR("Unable to open the eeprom device file of port(%d)"
+		syslog_ctrl(&log_mgmt[port], DOM_UNABLE_TO_OPEN_EEPROM_FILE,
+			"Unable to open the eeprom device file of port(%d)"
 			, port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
 
 	if (fseek(fp, 256, SEEK_CUR) != 0) {
 		fclose(fp);
-		AIM_LOG_ERROR("Unable to set the file position indicator of port(%d)"
+		syslog_ctrl(&log_mgmt[port], DOM_UNABLE_TO_SET_FILE_POS_INDICATOR,
+			"Unable to set the file position indicator of port(%d)"
 			, port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -269,7 +351,8 @@ onlp_sfpi_dom_read(int port, uint8_t data[256])
 	int ret = fread(data, 1, 256, fp);
 	fclose(fp);
 	if (ret != 256) {
-		AIM_LOG_ERROR("Unable to read the module_eeprom device file of port(%d)"
+		syslog_ctrl(&log_mgmt[port], DOM_UNABLE_TO_GET_EEPROM_DATA,
+			"Unable to read the module_eeprom device file of port(%d)"
 			, port);
 		return ONLP_STATUS_E_INTERNAL;
 	}
@@ -292,7 +375,8 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
 				, (port+1)) < 0) {
 				if (onlp_file_write_int(value, MODULE_TXDISABLE_FORMAT_1
 					, (port+1)) < 0) {
-					AIM_LOG_ERROR("Unable to set tx_disable status to port(%d)\r\n"
+					syslog_ctrl(&log_mgmt[port], TX_DIS_UNABLE_TO_SET_STATUS,
+						"Unable to set tx_disable status to port(%d)"
 					, port);
 					return ONLP_STATUS_E_INTERNAL;
 				}
@@ -325,7 +409,8 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 			< 0) {
 			if (onlp_file_read_int(value, MODULE_RXLOS_FORMAT_1, (port+1)) 
 				< 0) {
-				AIM_LOG_ERROR("Unable to read rx_loss status from port(%d)\r\n"
+				syslog_ctrl(&log_mgmt[port], RX_LOS_UNABLE_TO_GET_STATUS,
+					"Unable to read rx_loss status from port(%d)"
 					, port);
 				return ONLP_STATUS_E_INTERNAL;
 			}
@@ -340,7 +425,8 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 			 < 0) {
 			if (onlp_file_read_int(value, MODULE_TXFAULT_FORMAT_1, (port+1))
 			 	< 0) {
-				AIM_LOG_ERROR("Unable to read tx_fault status from port(%d)\r\n"
+				syslog_ctrl(&log_mgmt[port], TX_FAULT_UNABLE_TO_GET_STATUS,
+					"Unable to read tx_fault status from port(%d)"
 					, port);
 				return ONLP_STATUS_E_INTERNAL;
 			}
@@ -358,7 +444,8 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
 				(port+1)) < 0) {
 				if (onlp_file_read_int(value, MODULE_TXDISABLE_FORMAT_1, 
 					(port+1)) < 0) {
-					AIM_LOG_ERROR("Unable to read tx_disabled status from port(%d)\r\n"
+					syslog_ctrl(&log_mgmt[port], TX_DIS_UNABLE_TO_GET_STATUS,
+						"Unable to read tx_disabled status from port(%d)"
 						, port);
 					return ONLP_STATUS_E_INTERNAL;
 				}
