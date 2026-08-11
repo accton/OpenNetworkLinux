@@ -312,7 +312,8 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
             (strncmp(ptr, "FSF019", strlen("FSF019")) == 0)||
             (strncmp(ptr, "FSF045", strlen("FSF045")) == 0)||
             (strncmp(ptr, "SPAACTN-04", strlen("SPAACTN-04")) == 0)||
-            (strncmp(ptr, "SPAACTN-03", strlen("SPAACTN-03")) == 0)) {
+            (strncmp(ptr, "SPAACTN-03", strlen("SPAACTN-03")) == 0)||
+            (strncmp(ptr, "G1441-0850WNB", strlen("G1441-0850WNB")) == 0)) {
             value = data->v_in;
         }
         break;
@@ -323,7 +324,8 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
             (strncmp(ptr, "FSF019", strlen("FSF019")) == 0)||
             (strncmp(ptr, "FSF045", strlen("FSF045")) == 0)||
             (strncmp(ptr, "SPAACTN-04", strlen("SPAACTN-04")) == 0)||
-            (strncmp(ptr, "SPAACTN-03", strlen("SPAACTN-03")) == 0)) {
+            (strncmp(ptr, "SPAACTN-03", strlen("SPAACTN-03")) == 0)||
+            (strncmp(ptr, "G1441-0850WNB", strlen("G1441-0850WNB")) == 0)) {
             value = data->i_in;
         }
         break;
@@ -334,7 +336,8 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
             (strncmp(ptr, "FSF019", strlen("FSF019")) == 0)||
             (strncmp(ptr, "FSF045", strlen("FSF045")) == 0)||
             (strncmp(ptr, "SPAACTN-04", strlen("SPAACTN-04")) == 0)||
-            (strncmp(ptr, "SPAACTN-03", strlen("SPAACTN-03")) == 0)) {
+            (strncmp(ptr, "SPAACTN-03", strlen("SPAACTN-03")) == 0)||
+            (strncmp(ptr, "G1441-0850WNB", strlen("G1441-0850WNB")) == 0)) {
             value = data->p_in;
         }
         break;
@@ -520,7 +523,8 @@ static ssize_t show_vout(struct device *dev, struct device_attribute *da,
     else if ((strncmp(ptr, "DPS-850A", strlen("DPS-850A")) == 0)||
             (strncmp(ptr, "YM-2851J", strlen("YM-2851J")) == 0) ||
             (strncmp(ptr, "UPD1501SA-1190G", strlen("UPD1501SA-1190G")) == 0) ||
-            (strncmp(ptr, "UPD1501SA-1290G", strlen("UPD1501SA-1290G")) == 0)) {
+            (strncmp(ptr, "UPD1501SA-1290G", strlen("UPD1501SA-1290G")) == 0) ||
+            (strncmp(ptr, "G1441-0850WNB", strlen("G1441-0850WNB")) == 0) ) {
 
         return show_vout_by_mode(dev, da, buf);
     }
@@ -870,6 +874,7 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
             }
 
             if ((strncmp((data->mfr_model+1), "YM-2851J", strlen("YM-2851J")) == 0)||
+                (strncmp((data->mfr_model+1), "YM-2851F", strlen("YM-2851F")) == 0)||
                 (strncmp((data->mfr_model+1), "YM-2651Y", strlen("YM-2651Y")) == 0)||
                 (strncmp((data->mfr_model+1), "YPEB1200AM", strlen("YPEB1200AM")) == 0)) {
             
