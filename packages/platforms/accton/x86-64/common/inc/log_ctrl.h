@@ -72,28 +72,42 @@ void reset_log_ctrl(struct log_ctrl *arr, int count);
  * SFP domain
  * --------------------------------------------------------------- */
 
+/*
+ * Reason categories are split by *hardware target* (CPLD/FPGA vs. optical
+ * module EEPROM) crossed with *access mechanism* (sysfs file vs. direct I2C
+ * ioctl):
+ *
+ *   *_SYSFS_*             : Failure reading/writing a CPLD/FPGA attribute
+ *                           file exposed by the platform driver
+ *                           (module_present, module_lp_mode, module_tx_disable,
+ *                           module_reset, module_rx_los, module_tx_fault, ...).
+ *   *_EEPROM_SYSFS_*      : Failure reading/writing an EEPROM data file
+ *                           exposed by a driver (module_eeprom_%d, or the
+ *                           at24-style /sys/bus/i2c/devices/<bus>-0050/eeprom).
+ *                           Content is optical module EEPROM data, but the
+ *                           access path is sysfs (fopen()+fread()/fwrite() or
+ *                           onlp_file_*).
+ *   *_I2C_*_TARGET_*      : Failure performing a direct-I2C access
+ *                           (onlp_sfpi_dev_readb/writeb -> onlp_i2c_readb/
+ *                           writeb) to the final byte(s) that carry the
+ *                           requested data (e.g. the tx_disable byte in a
+ *                           QSFP module).
+ *   *_I2C_PREP_*          : Failure performing a direct-I2C access to an
+ *                           auxiliary byte needed to reach a target byte
+ *                           (identifier read, status byte read, page/bank
+ *                           select writes, control-byte read).
+ *   *_INVALID_*           : Value-level anomalies where the I/O succeeded but
+ *                           the returned data violates an invariant.
+ */
 enum sfp_log_reason {
-    SFP_PRESENT_UNABLE_TO_GET_STATUS,
-    SFP_EEPROM_UNABLE_TO_GET_DATA,
-    SFP_EEPROM_UNABLE_TO_GET_DATA_SIZE_DIFF,
-    SFP_DOM_UNABLE_TO_OPEN_EEPROM_FILE,
-    SFP_DOM_UNABLE_TO_SET_FILE_POS_INDICATOR,
-    SFP_DOM_UNABLE_TO_GET_EEPROM_DATA,
-    SFP_TX_DIS_UNABLE_TO_SET_STATUS,
-    SFP_TX_DIS_UNABLE_TO_GET_IDENTIFIER,
-    SFP_TX_DIS_UNABLE_TO_GET_MEM_MODEL,
-    SFP_TX_DIS_UNABLE_TO_SET_EEPROM_PAGE,
-    SFP_TX_DIS_UNABLE_TO_GET_CONTROL,
-    SFP_TX_DIS_UNABLE_TO_SET_BANK,
-    SFP_TX_DIS_UNABLE_TO_GET_STATUS,
-    SFP_LP_MODE_UNABLE_TO_GET_IDENTIFIER,
-    SFP_LP_MODE_UNABLE_TO_SET_STATUS,
-    SFP_LP_MODE_UNABLE_TO_GET_STATUS,
-    SFP_RESET_UNABLE_TO_SET_STATUS,
-    SFP_RESET_UNABLE_TO_GET_STATUS,
-    SFP_RX_LOS_UNABLE_TO_GET_STATUS,
-    SFP_TX_FAULT_UNABLE_TO_GET_STATUS,
-    SFP_MULTIRATE_UNABLE_TO_SET_STATUS,
+    SFP_SYSFS_READ_FAIL,
+    SFP_SYSFS_WRITE_FAIL,
+    SFP_EEPROM_SYSFS_READ_FAIL,
+    SFP_EEPROM_SYSFS_WRITE_FAIL,
+    SFP_I2C_READ_TARGET_FAIL,
+    SFP_I2C_WRITE_TARGET_FAIL,
+    SFP_I2C_PREP_FAIL,
+    SFP_INVALID_DATA_SIZE,
 
     SFP_LOG_REASON_COUNT,
 };
