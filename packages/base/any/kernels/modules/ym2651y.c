@@ -870,6 +870,7 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
             }
 
             if ((strncmp((data->mfr_model+1), "YM-2851J", strlen("YM-2851J")) == 0)||
+                (strncmp((data->mfr_model+1), "YM-2851F", strlen("YM-2851F")) == 0)||
                 (strncmp((data->mfr_model+1), "YM-2651Y", strlen("YM-2651Y")) == 0)||
                 (strncmp((data->mfr_model+1), "YPEB1200AM", strlen("YPEB1200AM")) == 0)) {
             
