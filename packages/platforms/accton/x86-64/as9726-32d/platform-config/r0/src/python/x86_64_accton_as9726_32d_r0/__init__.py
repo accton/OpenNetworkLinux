@@ -1,5 +1,37 @@
 from onl.platform.base import *
 from onl.platform.accton import *
+import os.path
+
+def get_mfu_ver_file():
+    cmd_list = [
+        "mkdir -p /mnt/onie-boot",
+        "blkid | grep 'ONIE-BOOT'",
+        "mount -L ONIE-BOOT /mnt/onie-boot",
+        "cp -a /mnt/onie-boot/onie/update/last_updated_MFU_version /var/tmp",
+        "umount /mnt/onie-boot"
+    ]
+
+    for cmd in cmd_list:
+        if "cp -a" in cmd:
+            if not os.path.isfile("/mnt/onie-boot/onie/update/last_updated_MFU_version"):
+                print("last_updated_MFU_version file does not exist !")
+                continue
+
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process.communicate()
+
+        if process.returncode != 0:
+            if "blkid" in cmd and process.returncode == 1:
+                print("ONIE-BOOT label does not exist !")
+            else:
+                print("'" + cmd + "'" + " runs with error return code: " + str(process.returncode))
+
+                if "cp -a" in cmd:
+                    continue
+
+            return False
+
+    return True
 
 class OnlPlatform_x86_64_accton_as9726_32d_r0(OnlPlatformAccton,
                                               OnlPlatformPortConfig_32x400_2x10):
@@ -75,5 +107,7 @@ class OnlPlatform_x86_64_accton_as9726_32d_r0(OnlPlatformAccton,
             subprocess.call('echo port%d > /sys/bus/i2c/devices/%d-0050/port_name' % (port, port+16), shell=True)
 
         self.new_i2c_device('24c02', 0x56, 13)
-        
+
+        get_mfu_ver_file()
+
         return True
