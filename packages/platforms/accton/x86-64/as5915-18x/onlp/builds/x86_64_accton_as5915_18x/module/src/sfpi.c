@@ -215,7 +215,7 @@ onlp_sfpi_eeprom_read(int port, uint8_t data[256])
     memset(data, 0, 256);
 
 	if(onlp_file_read(data, 256, &size, PORT_EEPROM_FORMAT, PORT_BUS_INDEX(port)) != ONLP_STATUS_OK) {
-        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_READ_FAIL, "Unable to read eeprom from port(%d)", port);
+        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_READ_FAIL, "Unable to read eeprom from port(%d)", port);
         return ONLP_STATUS_E_INTERNAL;
     }
 
@@ -237,14 +237,14 @@ onlp_sfpi_dom_read(int port, uint8_t data[256])
     sprintf(file, PORT_EEPROM_FORMAT, PORT_BUS_INDEX(port));
     fp = fopen(file, "r");
     if(fp == NULL) {
-        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_READ_FAIL,
+        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_READ_FAIL,
                    "Unable to open the eeprom device file of port(%d)", port);
         return ONLP_STATUS_E_INTERNAL;
     }
 
     if (fseek(fp, 256, SEEK_CUR) != 0) {
         fclose(fp);
-        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_READ_FAIL,
+        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_READ_FAIL,
                     "Unable to set the file position indicator of port(%d)", port);
         return ONLP_STATUS_E_INTERNAL;
     }
@@ -252,7 +252,7 @@ onlp_sfpi_dom_read(int port, uint8_t data[256])
     int ret = fread(data, 1, 256, fp);
     fclose(fp);
     if (ret != 256) {
-        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_READ_FAIL,
+        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_READ_FAIL,
                     "Unable to read the module_eeprom device file of port(%d)", port);
         return ONLP_STATUS_E_INTERNAL;
     }
