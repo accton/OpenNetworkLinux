@@ -232,7 +232,7 @@ onlp_sfpi_eeprom_read(int port, uint8_t data[256])
     memset(data, 0, 256);
 
 	if(onlp_file_read(data, 256, &size, PORT_EEPROM_FORMAT, (port+1)) != ONLP_STATUS_OK) {
-        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_READ_FAIL,
+        syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_READ_FAIL,
                     "Unable to read eeprom from port(%d)", port);
         return ONLP_STATUS_E_INTERNAL;
     }
@@ -352,7 +352,7 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                         /* txdis valid bit(bit0-bit3), xxxx 1111 */
                         value = value & 0xf;
                         if (onlp_sfpi_eeprom_writeb(port, QSFP_EEPROM_OFFSET_TXDIS, value) < 0) {
-                            syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_WRITE_FAIL,
+                            syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_WRITE_TARGET_BYTE_FAIL,
                                         "Unable to write tx_disable status to port(%d): write TX disable to eeprom fail",
                                         port);
                             rv = ONLP_STATUS_E_INTERNAL;
@@ -466,7 +466,7 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                         /* txdis valid bit(bit0-bit3), xxxx 1111 */
                         tx_disable = onlp_sfpi_eeprom_readb(port, QSFP_EEPROM_OFFSET_TXDIS);
                         if (tx_disable < 0) {
-                            syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_SYSFS_READ_FAIL,
+                            syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_READ_TARGET_BYTE_FAIL,
                                         "Unable to read tx_disable status from port(%d): read TX disable from eeprom fail",
                                         port);
                             rv = ONLP_STATUS_E_INTERNAL;
@@ -573,7 +573,7 @@ static int onlp_sfpi_dev_read_write(int port, uint8_t devaddr, uint8_t addr, uin
         return ONLP_STATUS_E_PARAM;
     }
 
-    int io_reason = write_access ? SFP_EEPROM_SYSFS_WRITE_FAIL : SFP_EEPROM_SYSFS_READ_FAIL;
+    int io_reason = write_access ? SFP_EEPROM_WRITE_TARGET_BYTE_FAIL : SFP_EEPROM_READ_TARGET_BYTE_FAIL;
 
     sprintf(file, PORT_EEPROM_FORMAT, (port+1));
     fp = fopen(file, "r+");
