@@ -1,6 +1,6 @@
 KERNELS := onl-kernel-6.12-lts-x86-64-all:amd64
-KINCLUDES := $(ONL)/packages/platforms/accton/x86-64/common/modules/src/accton_ipmi_intf.h
-KMODULES := $(ONL)/packages/platforms/accton/x86-64/common/modules/src/accton_ipmi_intf.c $(wildcard src/*.c)
+KINCLUDES := $(ONL)/packages/platforms/accton/x86-64/modules/builds/ipmi/accton_ipmi_intf.h
+KMODULES := $(ONL)/packages/platforms/accton/x86-64/modules/builds/ipmi/accton_ipmi_intf.c $(wildcard src/*.c)
 VENDOR := accton
 BASENAME := x86-64-accton-as7926-40xfb
 ARCH := x86_64
