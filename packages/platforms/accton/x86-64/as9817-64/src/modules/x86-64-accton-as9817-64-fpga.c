@@ -167,10 +167,17 @@ struct as9817_64_fpga_data {
 };
 
 static struct platform_device *pdev = NULL;
-extern spinlock_t cpld_access_lock;
-extern int wait_spi(u32 mask, unsigned long timeout_us);
-extern unsigned int spi_post_write_guard_delay_us;
-extern void __iomem *spi_busy_reg;
+
+/*
+ * These symbols are exported by x86-64-accton-as9817-64-i2c-ocores.ko and
+ * resolved at insmod time. Marked weak so modpost does not report them as
+ * undefined during the fpga.ko build pass (each .c is built in an isolated
+ * modpost pass, so cross-.ko symbols are not visible at build time).
+ */
+extern spinlock_t cpld_access_lock __attribute__((weak));
+extern int wait_spi(u32 mask, unsigned long timeout_us) __attribute__((weak));
+extern unsigned int spi_post_write_guard_delay_us __attribute__((weak));
+extern void __iomem *spi_busy_reg __attribute__((weak));
 
 /***********************************************
  *       enum define
