@@ -4,7 +4,7 @@
 #
 ###############################################################################
 THIS_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
-ACCTON_COMMON := $(THIS_DIR)../../../../../common
+ACCTON_COMMON := $(THIS_DIR)../../../../../common_lib/onlp_lib
 x86_64_accton_as7946_74xkb_INCLUDES := -I $(THIS_DIR)inc -I $(ACCTON_COMMON)/inc
 x86_64_accton_as7946_74xkb_INTERNAL_INCLUDES := -I $(THIS_DIR)src -I $(ACCTON_COMMON)/inc
 x86_64_accton_as7946_74xkb_DEPENDMODULE_ENTRIES := init:x86_64_accton_as7946_74xkb ucli:x86_64_accton_as7946_74xkb
