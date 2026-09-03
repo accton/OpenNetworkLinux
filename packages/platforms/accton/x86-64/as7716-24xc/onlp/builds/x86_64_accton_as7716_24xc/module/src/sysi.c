@@ -82,9 +82,10 @@ onlp_sysi_onie_data_get(uint8_t** data, int* size)
 {
     int ret = ONLP_STATUS_OK;
     int i = 0;
-    uint8_t* rdata = aim_zmalloc(256);
+    const int len = 256;
+    uint8_t* rdata = aim_zmalloc(len + 1);
 
-    for (i = 0; i < 128; i++) {
+    for (i = 0; i < len / 2; i++) {
         ret = onlp_i2c_readw(0, 0x56, i*2, ONLP_I2C_F_FORCE);
         if (ret < 0) {
             aim_free(rdata);
@@ -96,7 +97,7 @@ onlp_sysi_onie_data_get(uint8_t** data, int* size)
         rdata[i*2+1] = (ret >> 8) & 0xff;
     }
 
-    *size = 256;
+    *size = len;
     *data = rdata;
 
     return ONLP_STATUS_OK;

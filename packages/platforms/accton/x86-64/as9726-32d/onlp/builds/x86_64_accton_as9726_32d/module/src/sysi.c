@@ -58,10 +58,11 @@ const char* onlp_sysi_platform_get(void)
 
 int onlp_sysi_onie_data_get(uint8_t** data, int* size)
 {
-    uint8_t* rdata = aim_zmalloc(256);
+    const int len = 256;
+    uint8_t* rdata = aim_zmalloc(len + 1);
 
-    if (onlp_file_read(rdata, 256, size, IDPROM_PATH) == ONLP_STATUS_OK) {
-        if (*size == 256) {
+    if (onlp_file_read(rdata, len, size, IDPROM_PATH) == ONLP_STATUS_OK) {
+        if (*size == len) {
             *data = rdata;
             return ONLP_STATUS_OK;
         }

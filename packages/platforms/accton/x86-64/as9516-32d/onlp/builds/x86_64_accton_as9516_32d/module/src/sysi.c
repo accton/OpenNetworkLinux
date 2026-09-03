@@ -61,7 +61,8 @@ onlp_sysi_platform_get(void)
 int
 onlp_sysi_onie_data_get(uint8_t** data, int* size)
 {
-    uint8_t* rdata = aim_zmalloc(256);
+    const int len = 256;
+    uint8_t* rdata = aim_zmalloc(len + 1);
     int fail_cnt, rd_size, wr_size, i;
     uint8_t pca9548_chan;
     uint8_t byte_buf[128];
@@ -119,7 +120,7 @@ onlp_sysi_onie_data_get(uint8_t** data, int* size)
     mux_chn=0;
     i2c_addr = 0x51;
     rd_size = 1;
-    for(i=0; i<256; i++)
+    for(i=0; i<len; i++)
     {
         if((fpga_proc_i2c_read(fpga_id, bus, mux_i2c_addr, mux_chn, i2c_addr, rd_size, byte_buf)) != 0)
         {
@@ -150,7 +151,7 @@ exit1:
 
     if(fail_cnt==0)
     {
-        *size=256;
+        *size=len;
         *data = rdata;
         return ONLP_STATUS_OK;
     }
