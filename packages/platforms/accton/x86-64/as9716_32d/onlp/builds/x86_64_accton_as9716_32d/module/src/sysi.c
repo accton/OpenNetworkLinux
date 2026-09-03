@@ -59,13 +59,14 @@ onlp_sysi_platform_get(void)
 
 int
 onlp_sysi_onie_data_get(uint8_t** data, int* size)
-{    
-    uint8_t* rdata = aim_zmalloc(256);
-		
+{
+    const int len = 256;
+    uint8_t* rdata = aim_zmalloc(len + 1);
+
     /*New board eeprom i2c-addr is 0x57. Old board's eeprom i2c-addr is 0x56*/		
-    if(onlp_file_read(rdata, 256, size, IDPROM_PATH_1) == ONLP_STATUS_OK) /*0x57*/
+    if(onlp_file_read(rdata, len, size, IDPROM_PATH_1) == ONLP_STATUS_OK) /*0x57*/
     {
-        if(*size == 256)
+        if(*size == len)
         {
             *data = rdata;
             return ONLP_STATUS_OK;
@@ -73,9 +74,9 @@ onlp_sysi_onie_data_get(uint8_t** data, int* size)
     }
     else
     {
-        if(onlp_file_read(rdata, 256, size, IDPROM_PATH_2) == ONLP_STATUS_OK) /*0x56*/
+        if(onlp_file_read(rdata, len, size, IDPROM_PATH_2) == ONLP_STATUS_OK) /*0x56*/
         {
-            if(*size == 256)
+            if(*size == len)
             {
                 *data = rdata;
                 return ONLP_STATUS_OK;
@@ -143,8 +144,8 @@ onlp_sysi_platform_info_free(onlp_platform_info_t* pi)
     aim_free(pi->cpld_versions);
 }
 
-/*Read fanN_direction=1: The air flow of Fan6 is ¡§AFI-Back to Front¡¨
- *                    0: The air flow of Fan6 is ¡§AFO-Front to back¡¨
+/*Read fanN_direction=1: The air flow of Fan6 is "AFI-Back to Front"
+ *                    0: The air flow of Fan6 is "AFO-Front to back"
  */
 /*
  Thermal policy:
