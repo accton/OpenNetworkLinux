@@ -69,7 +69,7 @@ int
 onlp_sysi_onie_data_get(uint8_t** data, int* size)
 {
     const int len = 256;
-    uint8_t* rdata = aim_zmalloc(len);
+    uint8_t* rdata = aim_zmalloc(len + 1);
     char *paths[] = {IDPROM_PATH_2, IDPROM_PATH_1};
     int  ret = ONLP_STATUS_OK;
     int i;
