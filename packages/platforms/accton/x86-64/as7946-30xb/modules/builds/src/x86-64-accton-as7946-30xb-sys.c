@@ -35,11 +35,11 @@
 
 #define IPMI_SYSEEPROM_READ_CMD 0x18
 #define IPMI_READ_MAX_LEN       128
-#define IPMI_RESET_CMD			0x65
-#define IPMI_RESET_CMD_LENGTH	6
+#define IPMI_RESET_CMD          0x65
+#define IPMI_RESET_CMD_LENGTH   6
 
-#define EEPROM_NAME		"eeprom"
-#define EEPROM_SIZE		512	/*512 byte eeprom */
+#define EEPROM_NAME             "eeprom"
+#define EEPROM_SIZE             256
 
 #define IPMI_GET_CPLD_VER_CMD   0x20
 #define IPMI_GET_CPLD_CMD       0x22
@@ -122,7 +122,7 @@ static ssize_t get_reset(struct device *dev, struct device_attribute *da,
 
 	mutex_lock(&data->update_lock);
 	status = ipmi_send_message(&data->ipmi, IPMI_RESET_CMD, NULL, 0,
-				   data->ipmi_resp_rst, sizeof(data->ipmi_resp_rst));
+					data->ipmi_resp_rst, sizeof(data->ipmi_resp_rst));
 	if (unlikely(status != 0))
 		goto exit;
 
@@ -162,8 +162,8 @@ static ssize_t set_reset(struct device *dev, struct device_attribute *da,
 	data->ipmi_tx_data_rst[5] = magic[1];
 
 	status = ipmi_send_message(&data->ipmi, IPMI_RESET_CMD,
-				   data->ipmi_tx_data_rst,
-				   sizeof(data->ipmi_tx_data_rst), NULL, 0);
+					data->ipmi_tx_data_rst,
+					sizeof(data->ipmi_tx_data_rst), NULL, 0);
 	if (unlikely(status != 0))
 		goto exit;
 
@@ -273,10 +273,10 @@ as7946_30xb_sys_update_cpld_ver(unsigned char cpld_addr)
 
 	data->valid = 0;
 	data->ipmi_tx_data[0] = cpld_addr;
-	status = ipmi_send_message(&data->ipmi, IPMI_GET_CPLD_VER_CMD, 
-				   data->ipmi_tx_data, 1,
-				   data->ipmi_resp_cpld, 
-				   sizeof(data->ipmi_resp_cpld));
+	status = ipmi_send_message(&data->ipmi, IPMI_GET_CPLD_VER_CMD,
+					data->ipmi_tx_data, 1,
+					data->ipmi_resp_cpld,
+					sizeof(data->ipmi_resp_cpld));
 
 	if (unlikely(status != 0))
 		goto exit;
