@@ -121,9 +121,6 @@ onlp_sfpi_is_present(int port)
     bus = 3;
 
     if (onlp_file_read_int(&present, MODULE_PRESENT_FORMAT, bus, addr, (port+1)) < 0) {
-        if (log_mgmt[port].present_rec != ONLP_STATUS_E_INTERNAL) {
-            reset_log_ctrl(log_mgmt[port].log_ctrl, SFP_LOG_REASON_COUNT);
-        }
         log_mgmt[port].present_rec = ONLP_STATUS_E_INTERNAL;
 
         syslog_ctrl(log_mgmt[port].log_ctrl, SFP_SYSFS_READ_FAIL,
