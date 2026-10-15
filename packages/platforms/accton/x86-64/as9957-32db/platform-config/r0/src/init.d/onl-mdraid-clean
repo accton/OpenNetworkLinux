@@ -1,0 +1,40 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          onl-mdraid-clean
+# Required-Start:
+# Required-Stop:
+# Should-Stop:       halt reboot kexec
+# X-Stop-After:      umountroot
+# Default-Start:
+# Default-Stop:      0 6
+# Short-Description: Mark the boot RAID clean before halt or reboot
+# Description:       Only mdmon can write the RAID metadata. When the
+#                    root filesystem is read-only, ask mdmon to mark the
+#                    array clean, so the next boot needs no resync.
+### END INIT INFO
+
+[ "$1" = stop ] || exit 0
+# This file exists only when the system was booted from the RAID.
+[ -r /run/onl/mdraid.state ] || exit 0
+
+mdadm="/lib/platform-config/$(cat /etc/onl/platform)/onl/sbin/mdadm"
+if [ ! -x "$mdadm" ]; then
+    echo "ONL mdraid: $mdadm is missing. The next boot will resync the RAID." >&2
+    exit 0
+fi
+
+sync
+# Stop a running check or resync, so that its position is saved too.
+for action in /sys/block/md*/md/sync_action; do
+    if [ -w "$action" ]; then
+        echo idle > "$action" 2> /dev/null
+    fi
+done
+# mdadm waits for at most five seconds for each array.
+if "$mdadm" --wait-clean --scan; then
+    echo 'ONL mdraid: RAID marked clean.'
+else
+    echo 'ONL mdraid: RAID was not marked clean. The next boot will resync it.' >&2
+    sleep 1
+fi
+exit 0

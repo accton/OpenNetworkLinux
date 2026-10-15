@@ -1,0 +1,6 @@
+#!/bin/sh
+# Register the shutdown script by its LSB header. The "init:" key of
+# onlpm is not used here: its script skips update-rc.d while the rootfs
+# is built.
+set -e
+update-rc.d onl-mdraid-clean defaults > /dev/null
