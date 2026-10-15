@@ -136,6 +136,19 @@ def mounts():
     return result
 
 
+def mount_info(target):
+    """Read one mount, including its ID and filesystem options."""
+    result = []
+    for line in read('/proc/self/mountinfo').splitlines():
+        left, right = line.split(' - ', 1)
+        parts, fs = left.split(), right.split()
+        if mount_path(parts[4]) == target:
+            result.append(dict(id=parts[0], number=parts[2], root=mount_path(parts[3]),
+                               fs=fs[0], options=fields('\n'.join(fs[2].split(',')))))
+    require(len(result) == 1, 'Missing or stacked mount: ' + target)
+    return result[0]
+
+
 def device_numbers(device):
     """Return a whole device and its partitions, indexed by major:minor."""
     base = SYS_BLOCK + '/' + os.path.basename(device)
@@ -514,6 +527,51 @@ class Raid(object):
         require(not require_root or '/newroot' in found, 'Cannot identify the rootfs device.')
         return found
 
+    def mounted_root(self):
+        """Verify a rootfs that can stay mounted while MD is read-only.
+
+        Keep native NFS mounts unchanged. For SWI overlay, the squashfs
+        backing file must be in RAM and the upper layer must be in tmpfs.
+        """
+        root = mount_info('/newroot')
+        if root['fs'] in ('nfs', 'nfs4'):
+            return root
+        require(root['fs'] in ('overlay', 'overlayfs'),
+                'Unsupported RAID rootfs type: %s. Expected ONL-DATA ext4, standard SWI overlay or NFS.' % root['fs'])
+        lower = mount_info('/newroot.lower')
+        upper = mount_info('/newroot.upper')
+        options = root['options']
+        expected = dict(lowerdir='/newroot.lower', upperdir='/newroot.upper')
+        if root['fs'] == 'overlay':
+            expected.update(upperdir='/newroot.upper/upper', workdir='/newroot.upper/work')
+        require(root['root'] == '/' and
+                all(mount_path(options.get(key, '')) == value for key, value in expected.items()),
+                'Unsupported SWI overlay paths.')
+        require(lower['fs'] == 'squashfs' and lower['root'] == '/' and
+                upper['fs'] == 'tmpfs' and upper['root'] == '/',
+                'SWI requires a squashfs lower layer and a tmpfs upper layer.')
+        loop = os.path.realpath('/sys/dev/block/' + lower['number'])
+        require(re.match(r'^loop[0-9]+$', os.path.basename(loop)),
+                'The SWI squashfs is not on a loop device.')
+        backing = mount_path(read(loop + '/loop/backing_file'))
+        require(backing == '/tmp/.rootfs', 'Unexpected SWI squashfs backing file: ' + backing)
+        try:
+            info = os.stat(backing)
+        except OSError as error:
+            raise RuntimeError('Cannot stat SWI squashfs backing file %s: %s' % (backing, error))
+        number = '%d:%d' % (os.major(info.st_dev), os.minor(info.st_dev))
+        # The loader may keep /tmp on its initial rootfs or ramfs.
+        backing_fs = sorted(set(entry[3] for entry in mounts() if entry[0] == number))
+        require(stat.S_ISREG(info.st_mode) and
+                any(fs in ('tmpfs', 'ramfs', 'rootfs') for fs in backing_fs),
+                'The SWI squashfs backing file must be a regular file in RAM, outside MD '
+                '(device=%s, filesystem=%s).' % (number, ','.join(backing_fs) or 'unknown'))
+        for target in ('/newroot.lower', '/newroot.upper'):
+            require(not any(entry[2].startswith(target + '/') for entry in mounts()),
+                    'Nested mount below an SWI layer: ' + target)
+        root.update(lower=lower, upper=upper)
+        return root
+
     def prepare_root(self):
         """Quiesce RAID while mdmon is alive, before BusyBox init kills processes."""
         if not os.path.isfile(STATE):
@@ -542,10 +600,17 @@ class Raid(object):
         require([entry[3] for entry in actions if len(entry) == 4 and entry[2] == 'restart'] == ['/bin/switchroot'],
                 'Unexpected init restart action.')
         self.check_array(idle=True)
-        current = self.array_mounts(require_root=True)
-        root = current['/newroot']
-        require(run(['blkid', '-p', '-s', 'LABEL', '-o', 'value', root])[1] == 'ONL-DATA',
-                'The rootfs is not ONL-DATA.')
+        require(not any(entry[2].startswith('/newroot/') for entry in mounts()),
+                'Nested mounts below /newroot are not supported before handoff.')
+        current = self.array_mounts()
+        if '/newroot' in current:
+            root = current['/newroot']
+            require(run(['blkid', '-p', '-s', 'LABEL', '-o', 'value', root])[1] == 'ONL-DATA',
+                    'The rootfs is not ONL-DATA.')
+            handoff = dict(mode='md', device=root)
+        else:
+            handoff = dict(mode='mounted', mount=self.mounted_root())
+        print('ONL mdraid: rootfs handoff mode: ' + handoff['mode'])
         require(len(read('/proc/swaps').splitlines()) <= 1, 'Disable swap before rootfs handoff.')
         no_holders(device_numbers('/dev/' + self.state['array']).values())
         atomic_write(RUN_DIR + '/mdraid.mounts',
@@ -563,18 +628,24 @@ class Raid(object):
         mdadm('--readonly', '/dev/' + self.state['array'])
         self.check_array(readonly=True, idle=True)
         os.rename('/bin/switchroot.mdraid-new', '/bin/switchroot')
-        atomic_write(HANDOFF, 'root_device=%s\n' % root)
+        atomic_write(HANDOFF, json.dumps(handoff, sort_keys=True) + '\n')
         print('ONL mdraid: rootfs handoff prepared; MD is read-only and unmounted.')
 
     def resume_root(self):
         """Restore monitored rootfs after PID 1 has completed process cleanup."""
-        root = fields(read(HANDOFF))['root_device']
+        handoff = json.loads(read(HANDOFF))
+        require(handoff.get('mode') in ('md', 'mounted'), 'Invalid rootfs handoff mode.')
         self.load_state()
         self.check_array(idle=True)
-        require(root in device_numbers('/dev/' + self.state['array']).values(),
-                'The handoff root device is outside this MD array.')
-        require(run(['blkid', '-p', '-s', 'LABEL', '-o', 'value', root])[1] == 'ONL-DATA',
-                'Handoff root label changed.')
+        if handoff['mode'] == 'md':
+            root = handoff['device']
+            require(root in device_numbers('/dev/' + self.state['array']).values(),
+                    'The handoff root device is outside this MD array.')
+            require(run(['blkid', '-p', '-s', 'LABEL', '-o', 'value', root])[1] == 'ONL-DATA',
+                    'Handoff root label changed.')
+        else:
+            require(self.mounted_root() == handoff['mount'], 'The prepared rootfs mount changed.')
+            require(not self.array_mounts(), 'An MD filesystem is still mounted.')
         try:
             self.monitor_alive()
         except (IOError, OSError, ValueError, RuntimeError):
@@ -582,13 +653,19 @@ class Raid(object):
             self.check_array(readonly=True)
             self.start_monitor(takeover=True)
         self.enable_writes()
-        if not any(entry[2] == '/newroot' for entry in mounts()):
-            run(['mount', '-t', 'ext4', '-o', 'rw', root, '/newroot'])
-        require(self.array_mounts(require_root=True)['/newroot'] == root,
-                'Mounted rootfs does not match the prepared device.')
+        if handoff['mode'] == 'md':
+            if not any(entry[2] == '/newroot' for entry in mounts()):
+                run(['mount', '-t', 'ext4', '-o', 'rw', root, '/newroot'])
+            require(self.array_mounts(require_root=True)['/newroot'] == root,
+                    'Mounted rootfs does not match the prepared device.')
         require(os.access('/newroot/sbin/init', os.X_OK), 'The remounted rootfs has no init.')
         require(read('/newroot/etc/onl/platform') == self.platform, 'Remounted rootfs platform changed.')
-        run(['mount', '--bind', '/run', '/newroot/run'])
+        if any(entry[2] == '/newroot/run' for entry in mounts()):
+            source, target = mount_info('/run'), mount_info('/newroot/run')
+            require(all(source[key] == target[key] for key in ('number', 'root', 'fs')),
+                    '/newroot/run does not match the loader /run.')
+        else:
+            run(['mount', '--bind', '/run', '/newroot/run'])
         self.monitor_alive()
         print('ONL mdraid: mdmon restarted and rootfs restored.')
 
