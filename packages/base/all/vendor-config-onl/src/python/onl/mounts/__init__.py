@@ -9,6 +9,24 @@ import json
 import yaml
 import tempfile
 import shutil
+import stat
+
+
+def resolve_block_device(label):
+    """Resolve a label using an optional boot-time device map."""
+    path = '/run/onl/block-devices.json'
+    if not os.path.exists(path):
+        return subprocess.check_output(('blkid', '-L', label)).strip()
+
+    with open(path) as stream:
+        devices = json.load(stream)
+    if label not in devices:
+        # A device map is authoritative. Do not search other disks.
+        raise subprocess.CalledProcessError(2, ['blkid', '-L', label])
+    device = devices[label]
+    if not device.startswith('/dev/') or not stat.S_ISBLK(os.stat(device).st_mode):
+        raise ValueError('Invalid block device for %s: %s' % (label, device))
+    return device
 
 class MountManager(object):
 
@@ -155,7 +173,7 @@ class OnlMountManager(object):
             lbl = v.get('label', k)
             useUbiDev = False
             try:
-                v['device'] = subprocess.check_output(('blkid', '-L', lbl,)).strip()
+                v['device'] = resolve_block_device(lbl)
             except subprocess.CalledProcessError:
                 useUbiDev = True
             if useUbiDev == True:
@@ -443,7 +461,7 @@ class OnlMountContextReadWrite(OnlMountContext):
 class OnlOnieBootContext(MountContext):
     def __init__(self, mdir="/mnt/onie-boot", mode="rw", label="ONIE-BOOT", logger=None):
         try:
-            device = subprocess.check_output("blkid -L %s" % label, shell=True).strip()
+            device = resolve_block_device(label)
         except subprocess.CalledProcessError:
             self.logger.debug("Block label %s does not yet exist..." % label)
             raise

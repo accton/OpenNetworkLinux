@@ -1,0 +1,7 @@
+#!/bin/sh
+# Finish the handover before ONL upgrades or mounts runtime filesystems.
+[ -r /run/onl/mdraid.state ] || exit 0
+while ! python "/lib/platform-config/$(cat /etc/onl/platform)/onl/raid/onl-mdraid.py" takeover; do
+    echo 'ONL mdraid: mdmon handover failed. Exit this shell after correcting the error.' >&2
+    /bin/sh -i
+done
