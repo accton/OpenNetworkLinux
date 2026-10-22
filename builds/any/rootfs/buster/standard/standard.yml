@@ -79,6 +79,7 @@ Configure:
     - 'nfs-common remove'
     - 'rpcbind remove'
     - 'motd remove'
+    - 'onl-mdraid-clean defaults'
     - 'mountall-bootclean.sh remove'
     - 'mountall.sh remove'
     - 'checkfs.sh remove'

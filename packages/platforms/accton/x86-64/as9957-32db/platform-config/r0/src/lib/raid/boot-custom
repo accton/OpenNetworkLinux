@@ -1,3 +1,0 @@
-#!/bin/sh
-# The existing loader boot command sources this hook before switch_root.
-python "/lib/platform-config/$(cat /etc/onl/platform)/onl/raid/onl-mdraid.py" prepare-root || exit 1

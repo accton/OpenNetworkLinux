@@ -16,6 +16,7 @@ packages:
       - $ONL/tools/onlyaml.py : $PY_INSTALL/onl/onlyaml/__init__.py
       - src/etc : /etc
       - src/boot.d : /etc/boot.d
+      - src/init.d : /etc/init.d
       - src/bin : /usr/bin
       - src/lib : /lib/vendor-config/onl
       - src/sbin : /sbin

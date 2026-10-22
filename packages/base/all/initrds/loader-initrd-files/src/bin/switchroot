@@ -33,6 +33,17 @@
 #
 ############################################################
 
+# Restart the RAID monitor and remount the root from the RAID, now that
+# init has ended every other process. This runs before the loader
+# mounts are detached below, because the helper carries /run into
+# /newroot. Only a boot that left RAID state behind takes this path.
+if [ -r /run/onl/mdraid.state ]; then
+    while ! onl-mdraid resume-root; do
+        echo 'ONL mdraid: rootfs handoff stopped. Exit this shell to retry.' >&2
+        /bin/sh -i </dev/console >/dev/console 2>&1
+    done
+fi
+
 # Unmount all filesystems except / and anything under /newroot
 mtab=$(mktemp /tmp/tmp.XXXXXX)
 cp /proc/mounts ${mtab}

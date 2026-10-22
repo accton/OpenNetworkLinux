@@ -12,6 +12,7 @@ import shutil
 import re
 
 import Fit, Legacy
+import onl.blockdev
 
 class SubprocessMixin:
 
@@ -389,10 +390,19 @@ class BlkidParser(SubprocessMixin):
     def __getitem__(self, idxOrName):
         if type(idxOrName) == int:
             return self.parts[idxOrName]
-        for part in self.parts:
-            if part.label == idxOrName: return part
-            if part.uuid == idxOrName: return part
-        raise IndexError("cannot find partition %s" % repr(idxOrName))
+        matches = [part for part in self.parts
+                   if part.label == idxOrName or part.uuid == idxOrName]
+        if not matches:
+            raise IndexError("cannot find partition %s" % repr(idxOrName))
+        # On a mirrored RAID the same label is visible on every member
+        # disk and on the MD device. Prefer the MD device and never
+        # hand out a member partition; see onl.blockdev for the rules.
+        try:
+            return onl.blockdev.choose(matches, idxOrName,
+                                       device_of=lambda part: part.device)
+        except onl.blockdev.RaidMemberError as what:
+            self.log.error("%s", what)
+            raise IndexError("cannot find partition %s" % repr(idxOrName))
 
     def __len__(self):
         return len(self.parts)
