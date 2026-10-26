@@ -62,6 +62,9 @@
 #define IDPROM_PATH "/sys/bus/i2c/devices/13-0056/eeprom"
 #define WARM_RESET_FORMAT "/sys/bus/i2c/devices/1-0060/reset_mac"
 
+#define BIOS_VER_PATH "/sys/devices/virtual/dmi/id/bios_version"
+#define MFU_VER_PATH "/var/tmp/last_updated_MFU_version"
+
 enum onlp_thermal_id
 {
         THERMAL_RESERVED = 0,
