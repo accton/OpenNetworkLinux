@@ -15,6 +15,12 @@ endif
 PLATFORM_PACKAGES := $(foreach p,$(PLATFORMS),onl-platform-config-$(p):$(ARCH))
 VENDOR_PACKAGES := $(foreach p,$(PLATFORMS),$(shell python $(ONL)/tools/onlplatform.py $(p) $(ARCH) vendor))
 
+# Static mdadm and mdmon for booting from a RAID (see onl.mdraid).
+# The package is built for amd64 only, so other loaders leave it out.
+ifeq ($(ARCH),amd64)
+MDADM_PACKAGES := onl-mdadm:$(ARCH)
+endif
+
 ROOT := root
 TARGET := onl-loader-initrd-$(ARCH).cpio.gz
 .PHONY: $(TARGET)
@@ -26,6 +32,7 @@ $(TARGET):
 	$(ONLPM) --sudo $(foreach p,$(PLATFORM_PACKAGES),--extract-dir $(p) $(ROOT))
 	$(MAKE) __vendor_config_data
 	$(ONLPM) --sudo --force --extract-dir onl-vendor-config-onl:all $(ROOT)
+	$(if $(MDADM_PACKAGES),$(ONLPM) --sudo --force --extract-dir $(MDADM_PACKAGES) $(ROOT))
 	$(ONL)/tools/sjson.py --kj version $(ONL)/make/versions/version-onl.json --kl platforms $(PLATFORMS) --kv arch $(ARCH) --out manifest.json
 	sudo mkdir -p $(ROOT)/etc/onl/loader && sudo cp manifest.json $(ROOT)/etc/onl/loader
 	sudo $(ONL)/tools/makedevs -d $(ROOT)/etc/rootperms $(abspath $(ROOT))

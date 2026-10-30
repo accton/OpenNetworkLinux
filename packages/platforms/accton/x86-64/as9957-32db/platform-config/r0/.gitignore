@@ -1,8 +1,0 @@
-src/lib/sbin/mdadm
-src/lib/sbin/mdmon
-src/lib/raid/COPYING.mdadm
-builds/mdadm-*.tar.xz
-builds/mdadm-*.tar.xz.part
-builds/.mdadm-build/
-__pycache__/
-*.pyc

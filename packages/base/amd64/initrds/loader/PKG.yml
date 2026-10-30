@@ -1,1 +1,30 @@
-!include $ONL/packages/base/any/initrds/loader/APKG.yml ARCH=amd64
+############################################################
+#
+# amd64 Loader Package
+#
+# Same as the loader package template, plus the static mdadm
+# package that the loader Makefile adds to the amd64 initrd for
+# booting from a RAID (see onl.mdraid).
+#
+############################################################
+prerequisites:
+  packages: [ "onl-buildroot-initrd:amd64", "onl-loader-initrd-files:all", "onl-mdadm:amd64" ]
+  stage: 3
+
+common:
+  arch: amd64
+  version: 1.0.0
+  copyright: Copyright 2013, 2014, 2015 Big Switch Networks
+  maintainer: support@bigswitch.com
+  support: opennetworklinux@googlegroups.com
+
+packages:
+  - name: onl-loader-initrd
+    version: 1.0.0
+    summary: Open Network Linux Loader Initrd CPIO (amd64)
+
+    files:
+      builds/onl-loader-initrd-amd64.cpio.gz : $$PKG_INSTALL/
+      builds/manifest.json : $$PKG_INSTALL/
+
+    changelog:  Change changes changes.,

@@ -67,6 +67,23 @@ done
 # Populate platform-specific settings
 . /lib/platform-detect
 
+# Assemble and verify the RAID that holds ONL, when there is one.
+# The helper returns at once when no RAID member disk carries ONL.
+# Keep its log before the rootfs switch; on failure the boot stops in
+# the loader shell and the ONL filesystems are not mounted.
+if [ ! -f /etc/onl/abort ]; then
+    mdraid_log=/etc/onl/mdraid.log
+    if onl-mdraid loader >"$mdraid_log" 2>&1; then
+        cat "$mdraid_log"
+    else
+        {
+            echo 'ONL mdraid: RAID setup failed.'
+            cat "$mdraid_log"
+        } >/etc/onl/abort
+        cat /etc/onl/abort >&2
+    fi
+fi
+
 if [ ! -f /etc/onl/abort ]; then
 
     # Tell kernel to invoke mdev when devices are added or removed

@@ -1,10 +1,13 @@
 ############################################################
 #
-# Static mdadm and mdmon for the RAID boot helper.
+# Static mdadm and mdmon for the ONL RAID boot support.
 #
 # Both tools are built from one pinned upstream release and are
-# linked statically. The loader and the runtime system then use
-# the same files, on every Debian release.
+# linked statically. The loader initrd and the runtime system then
+# use the same files, on every Debian release. The build runs in the
+# ONL builder with its native toolchain; the result is placed in the
+# builds directory of the architecture package that includes this
+# file (packages/base/<arch>/mdadm/builds).
 #
 ############################################################
 MDADM_VERSION := 4.3
@@ -18,10 +21,8 @@ MDADM_URL := https://www.kernel.org/pub/linux/utils/raid/mdadm/$(MDADM_ARCHIVE)
 # mdadm 4.3 still needs the libudev.h header to compile.
 MDADM_CXFLAGS := -O2 -Wno-error -DNO_LIBUDEV
 
-# ONL adds the sbin directory of the running platform to PATH, so
-# "mdadm" and "mdmon" can be typed at the shell after login.
-SBIN := ../src/lib/sbin
-LICENSE := ../src/lib/raid/COPYING.mdadm
+SBIN := sbin
+LICENSE := COPYING.mdadm
 WORK := .mdadm-build
 SOURCE := $(WORK)/mdadm-$(MDADM_VERSION)
 
@@ -38,15 +39,16 @@ $(MDADM_ARCHIVE):
 
 # The loader has no C library for these tools, so they must be static.
 # mdmon is installed last: it appears only after every check passed.
-$(SBIN)/mdmon: $(MDADM_ARCHIVE) Makefile
+$(SBIN)/mdmon: $(MDADM_ARCHIVE) $(lastword $(MAKEFILE_LIST))
 	echo "$(MDADM_SHA256)  $(MDADM_ARCHIVE)" | sha256sum -c -
 	rm -rf $(WORK)
 	rm -f $(SBIN)/mdadm $(SBIN)/mdmon $(LICENSE)
 	mkdir -p $(WORK) $(SBIN)
 	tar -xf $(MDADM_ARCHIVE) -C $(WORK)
-	$(MAKE) -C $(SOURCE) CC=gcc CXFLAGS="$(MDADM_CXFLAGS)" LDFLAGS=-static RUN_DIR=/run/mdadm mdadm mdmon
-	strip $(SOURCE)/mdadm $(SOURCE)/mdmon
+	$(MAKE) -C $(SOURCE) CC=$(CROSS_COMPILER)gcc CXFLAGS="$(MDADM_CXFLAGS)" LDFLAGS=-static RUN_DIR=/run/mdadm mdadm mdmon
+	$(CROSS_COMPILER)strip $(SOURCE)/mdadm $(SOURCE)/mdmon
 	for tool in mdadm mdmon; do readelf -d $(SOURCE)/$$tool | grep -q "no dynamic section" || exit 1; done
+	# The two checks below run the new tools, so they need a native build.
 	$(SOURCE)/mdadm --version 2>&1 | grep -q "mdadm - v$(MDADM_VERSION) "
 	$(SOURCE)/mdmon --help 2>&1 | grep -q -- "--takeover"
 	cp $(SOURCE)/COPYING $(LICENSE)
@@ -54,7 +56,6 @@ $(SBIN)/mdmon: $(MDADM_ARCHIVE) Makefile
 	install -m 0755 $(SOURCE)/mdmon $(SBIN)/mdmon
 	rm -rf $(WORK)
 
-# Other files in the sbin directory are not touched.
 clean:
-	rm -rf $(WORK) $(MDADM_ARCHIVE).part
-	rm -f $(SBIN)/mdadm $(SBIN)/mdmon $(LICENSE)
+	rm -rf $(WORK) $(SBIN) $(MDADM_ARCHIVE).part
+	rm -f $(LICENSE)

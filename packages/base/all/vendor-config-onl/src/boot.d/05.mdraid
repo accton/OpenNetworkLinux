@@ -1,0 +1,8 @@
+#!/bin/sh
+# Finish the RAID handover before ONL upgrades or mounts runtime filesystems.
+# The state file exists only when the loader booted from a RAID.
+[ -r /run/onl/mdraid.state ] || exit 0
+while ! onl-mdraid takeover; do
+    echo 'ONL mdraid: mdmon handover failed. Exit this shell after correcting the error.' >&2
+    /bin/sh -i
+done

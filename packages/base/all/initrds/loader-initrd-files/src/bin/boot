@@ -227,6 +227,15 @@ if [ -f /lib/boot-custom ]; then
     . /lib/boot-custom
 fi
 
+# Unmount the RAID filesystems and make the RAID read-only before the
+# rootfs switch. A /newroot on the RAID (BOOTMODE=INSTALLED) is mounted
+# again by switchroot; a /newroot in RAM or on NFS (BOOTMODE=SWI) stays
+# mounted. Only a boot that left RAID state behind takes this path;
+# a failure stops the boot here (set -e) with the RAID intact.
+if [ -r /run/onl/mdraid.state ]; then
+    onl-mdraid prepare-root
+fi
+
 # done with the temporary dirs and mounts
 trap "" 0 1
 do_cleanup || :

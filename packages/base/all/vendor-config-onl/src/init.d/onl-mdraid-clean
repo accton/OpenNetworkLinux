@@ -17,7 +17,8 @@
 # This file exists only when the system was booted from the RAID.
 [ -r /run/onl/mdraid.state ] || exit 0
 
-mdadm="/lib/platform-config/$(cat /etc/onl/platform)/onl/sbin/mdadm"
+# The static mdadm of the onl-mdadm package, the one the loader used.
+mdadm=/sbin/mdadm
 if [ ! -x "$mdadm" ]; then
     echo "ONL mdraid: $mdadm is missing. The next boot will resync the RAID." >&2
     exit 0

@@ -1,0 +1,34 @@
+############################################################
+#
+# Static mdadm and mdmon for the ONL RAID boot support.
+#
+# Requires: ARCH
+#
+############################################################
+common:
+  arch: $ARCH
+  version: 1.0.0
+  copyright: Copyright 2013, 2014, 2015 Big Switch Networks
+  maintainer: support@bigswitch.com
+  support: opennetworklinux@googlegroups.com
+
+packages:
+  - name: onl-mdadm
+    version: 1.0.0
+    summary: Static mdadm and mdmon for booting ONL from a RAID ($ARCH)
+
+    # The loader initrd and the rootfs install the same two files, so
+    # every boot stage runs the same mdadm version. They are installed
+    # under their usual names: an operator can type "mdadm --detail
+    # /dev/md126" in the loader shell and in the system, and mdadm
+    # finds mdmon next to itself. The boot stages still call them by
+    # full path, never through PATH. The Debian mdadm package owns the
+    # same names and brings its own auto-assembly rules; it must not
+    # be installed next to this package.
+    files:
+      builds/sbin/mdadm : /sbin/mdadm
+      builds/sbin/mdmon : /sbin/mdmon
+      builds/COPYING.mdadm : /usr/share/doc/onl-mdadm/COPYING
+    conflicts: [ mdadm ]
+
+    changelog:  Change changes changes.,

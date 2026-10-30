@@ -9,24 +9,7 @@ import json
 import yaml
 import tempfile
 import shutil
-import stat
-
-
-def resolve_block_device(label):
-    """Resolve a label using an optional boot-time device map."""
-    path = '/run/onl/block-devices.json'
-    if not os.path.exists(path):
-        return subprocess.check_output(('blkid', '-L', label)).strip()
-
-    with open(path) as stream:
-        devices = json.load(stream)
-    if label not in devices:
-        # A device map is authoritative. Do not search other disks.
-        raise subprocess.CalledProcessError(2, ['blkid', '-L', label])
-    device = devices[label]
-    if not device.startswith('/dev/') or not stat.S_ISBLK(os.stat(device).st_mode):
-        raise ValueError('Invalid block device for %s: %s' % (label, device))
-    return device
+import onl.blockdev
 
 class MountManager(object):
 
@@ -167,14 +150,24 @@ class OnlMountManager(object):
         md = self.mdata['mounts']
         optional = set(x for x in md if md[x].get('optional', False))
         pending = set(x for x in md if not md[x].get('optional', False))
+        refused = set()
 
         def _discover(k):
             v = md[k]
             lbl = v.get('label', k)
             useUbiDev = False
             try:
-                v['device'] = resolve_block_device(lbl)
-            except subprocess.CalledProcessError:
+                # The lookup prefers an MD device and refuses a RAID
+                # member; see onl.blockdev for the rules.
+                v['device'] = onl.blockdev.resolve(lbl)
+            except onl.blockdev.RaidMemberError as what:
+                # Never mount a member disk. Keep waiting until the
+                # timeout instead of falling back to another lookup.
+                if k not in refused:
+                    refused.add(k)
+                    self.logger.error("%s", what)
+                return False
+            except LookupError:
                 useUbiDev = True
             if useUbiDev == True:
                 if k == 'EFI-BOOT':
@@ -461,7 +454,7 @@ class OnlMountContextReadWrite(OnlMountContext):
 class OnlOnieBootContext(MountContext):
     def __init__(self, mdir="/mnt/onie-boot", mode="rw", label="ONIE-BOOT", logger=None):
         try:
-            device = resolve_block_device(label)
+            device = subprocess.check_output("blkid -L %s" % label, shell=True).strip()
         except subprocess.CalledProcessError:
             self.logger.debug("Block label %s does not yet exist..." % label)
             raise
