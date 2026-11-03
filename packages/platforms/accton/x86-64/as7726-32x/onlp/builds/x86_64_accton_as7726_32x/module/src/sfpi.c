@@ -354,7 +354,20 @@ onlp_sfpi_control_set(int port, onlp_sfp_control_t control, int value)
                     if(port >= QSFP_PORT_MIN && port <= QSFP_PORT_MAX)
                     {
                         /* txdis valid bit(bit0-bit3), xxxx 1111 */
-                        value = value & 0xf;
+                        if (control == ONLP_SFP_CONTROL_TX_DISABLE) {
+                            if (value < 0 || value > 1) {
+                                rv = ONLP_STATUS_E_INVALID;
+                                break;
+                            }
+                            value = (value == 0) ? 0 : 0xf;
+                        }
+                        else if (control == ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL) {
+                            if (value < 0 || value > 0xf) {
+                                rv = ONLP_STATUS_E_INVALID;
+                                break;
+                            }
+                        }
+
                         if(onlp_sfpi_dev_writeb(port, PORT_EEPROM_DEVADDR, QSFP_EEPROM_OFFSET_TXDIS, value) < 0) {
                             syslog_ctrl(log_mgmt[port].log_ctrl, SFP_EEPROM_WRITE_TARGET_BYTE_FAIL,
                                         "Unable to write tx_disable status to port(%d)", port);
@@ -499,7 +512,11 @@ onlp_sfpi_control_get(int port, onlp_sfp_control_t control, int* value)
                             rv = ONLP_STATUS_E_INTERNAL;
                         } 
                         else {
-                            *value = tx_dis;
+                            if (control == ONLP_SFP_CONTROL_TX_DISABLE) {
+                                *value = ((tx_dis & 0xf) == 0xf) ? 1 : 0; 
+                            } else if (control == ONLP_SFP_CONTROL_TX_DISABLE_CHANNEL) {
+                                *value = (tx_dis & 0xf);
+                            }
                             rv = ONLP_STATUS_OK;
                         }
                     }
